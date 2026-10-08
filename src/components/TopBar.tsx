@@ -15,15 +15,17 @@ export function TopBar() {
   }
 
   return (
-    <header className="sticky top-0 z-20 flex items-center justify-between gap-4 bg-spotify-base-black/80 px-6 py-3 backdrop-blur-md">
-      <form onSubmit={handleSearchSubmit} className="w-full max-w-md">
+    <header className="sticky top-0 z-20 flex items-center justify-between gap-3 bg-spotify-base-black/80 px-4 py-3 md:gap-4 md:px-6 backdrop-blur-md">
+      <form onSubmit={handleSearchSubmit} className="min-w-0 flex-1 md:max-w-md">
         <div className="flex items-center gap-3 rounded-full bg-spotify-highlight-black px-4 py-2.5 focus-within:ring-2 focus-within:ring-white">
           <SearchIcon className="h-5 w-5 flex-shrink-0 text-spotify-gray" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            type="search"
+            enterKeyHint="search"
             placeholder="What do you want to listen to?"
-            className="w-full bg-transparent text-sm outline-none placeholder:text-spotify-gray"
+            className="w-full min-w-0 bg-transparent text-base outline-none md:text-sm placeholder:text-spotify-gray"
           />
         </div>
       </form>

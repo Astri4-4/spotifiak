@@ -20,7 +20,7 @@ export function Sidebar() {
   useEffect(refresh, []);
 
   return (
-    <aside className="hidden h-full w-64 flex-shrink-0 flex-col gap-2 p-2 sm:flex">
+    <aside className="hidden h-full w-56 flex-shrink-0 flex-col gap-2 md:flex lg:w-64 xl:w-72">
       <div className="rounded-lg bg-spotify-elevated-black p-4">
         <nav className="flex flex-col gap-1">
           <NavLink to="/" end className={navLinkClass}>
@@ -50,7 +50,7 @@ export function Sidebar() {
         <div className="mt-2 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2 pb-4">
           <NavLink
             to="/liked"
-            className="flex items-center gap-3 rounded-md px-2 py-2 text-sm text-spotify-gray hover:bg-white/10 hover:text-white"
+            className="flex flex-shrink-0 items-center gap-3 rounded-md px-2 py-2 text-sm text-spotify-gray hover:bg-white/10 hover:text-white"
           >
             <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded bg-gradient-to-br from-indigo-600 to-blue-300">
               <HeartIcon filled className="h-5 w-5 text-white" />
@@ -62,7 +62,12 @@ export function Sidebar() {
             <NavLink
               key={playlist.id}
               to={`/playlist/${playlist.id}`}
-              className="truncate rounded-md px-2 py-2 text-sm text-spotify-gray hover:bg-white/10 hover:text-white"
+              title={playlist.name}
+              className={({ isActive }) =>
+                `flex-shrink-0 truncate rounded-md px-2 py-2 text-sm hover:bg-white/10 hover:text-white ${
+                  isActive ? "text-white" : "text-spotify-gray"
+                }`
+              }
             >
               {playlist.name}
             </NavLink>

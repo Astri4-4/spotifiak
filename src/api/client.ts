@@ -143,5 +143,5 @@ export async function request<T = Record<string, unknown>>(
     );
   }
 
-  return root as unknown as T;
+  return data as unknown as T;
 }

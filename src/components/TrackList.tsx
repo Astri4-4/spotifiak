@@ -5,6 +5,10 @@ import { formatDuration } from "@/lib/format";
 import { usePlayer } from "@/context/PlayerContext";
 import { HeartIcon, PauseIcon, PlayIcon } from "./icons";
 
+// Phones: title | actions. md: # | title | actions. lg+: # | title | album | actions.
+const COLUMNS =
+  "grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[2rem_minmax(0,1fr)_auto] lg:grid-cols-[2rem_minmax(0,4fr)_minmax(0,3fr)_auto]";
+
 interface TrackListProps {
   tracks: Child[];
   /** Shown as the queue when any track in this list is played. Defaults to `tracks`. */
@@ -40,10 +44,10 @@ export function TrackList({
 
   return (
     <div className="flex flex-col">
-      <div className="grid grid-cols-[2rem_1fr_auto] gap-4 border-b border-white/10 px-4 pb-2 text-xs uppercase tracking-wide text-spotify-gray sm:grid-cols-[2rem_4fr_3fr_auto]">
+      <div className={`hidden gap-4 border-b border-white/10 px-4 pb-2 text-xs uppercase tracking-wide text-spotify-gray md:grid ${COLUMNS}`}>
         <span className="text-right">#</span>
         <span>Title</span>
-        <span className="hidden sm:block">{showAlbum ? "Album" : ""}</span>
+        <span className="hidden lg:block">{showAlbum ? "Album" : ""}</span>
         <span className="text-right">Duration</span>
       </div>
       <div className="mt-2 flex flex-col">
@@ -54,12 +58,19 @@ export function TrackList({
             <div
               key={`${track.id}-${index}`}
               onDoubleClick={() => handleRowClick(index)}
-              className="group grid cursor-default grid-cols-[2rem_1fr_auto] items-center gap-4 rounded-md px-4 py-2 text-sm hover:bg-white/10 sm:grid-cols-[2rem_4fr_3fr_auto]"
+              // Touch screens have no double-click: a single tap plays the row.
+              onClick={() => {
+                if (window.matchMedia("(hover: none)").matches) handleRowClick(index);
+              }}
+              className={`group grid cursor-default items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-white/10 active:bg-white/10 md:gap-4 md:px-4 ${COLUMNS}`}
             >
               <button
                 type="button"
-                onClick={() => handleRowClick(index)}
-                className={`relative flex h-5 w-5 items-center justify-center justify-self-end text-right ${isCurrent ? "text-spotify-green" : "text-spotify-gray"}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRowClick(index);
+                }}
+                className={`relative hidden h-5 w-5 items-center justify-center justify-self-end text-right md:flex ${isCurrent ? "text-spotify-green" : "text-spotify-gray"}`}
                 aria-label={isCurrent && isPlaying ? "Pause" : "Play"}
               >
                 <span className="group-hover:hidden">
@@ -104,7 +115,7 @@ export function TrackList({
                 </div>
               </div>
 
-              <span className="hidden truncate self-center text-spotify-gray sm:block">
+              <span className="hidden truncate self-center text-spotify-gray lg:block">
                 {showAlbum && track.albumId ? (
                   <Link to={`/album/${track.albumId}`} className="hover:underline" onClick={(e) => e.stopPropagation()}>
                     {track.album}
@@ -114,18 +125,21 @@ export function TrackList({
                 ) : null}
               </span>
 
-              <div className="flex items-center gap-3 justify-self-end text-spotify-gray">
+              <div className="flex items-center gap-2 justify-self-end text-spotify-gray md:gap-3">
                 {onToggleStar && (
                   <button
                     type="button"
-                    onClick={() => onToggleStar(track)}
-                    className={`opacity-0 transition-opacity group-hover:opacity-100 ${starred ? "!opacity-100 text-spotify-green" : ""}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleStar(track);
+                    }}
+                    className={`flex h-8 w-8 items-center justify-center transition-opacity md:h-auto md:w-auto md:opacity-0 md:group-hover:opacity-100 ${starred ? "!opacity-100 text-spotify-green" : ""}`}
                     aria-label={starred ? "Remove from Liked Songs" : "Save to Liked Songs"}
                   >
                     <HeartIcon filled={starred} className="h-4 w-4" />
                   </button>
                 )}
-                <span className="tabular-nums">{formatDuration(track.duration)}</span>
+                <span className="hidden tabular-nums sm:inline">{formatDuration(track.duration)}</span>
               </div>
             </div>
           );

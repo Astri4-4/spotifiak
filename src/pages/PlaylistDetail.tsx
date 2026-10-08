@@ -6,7 +6,7 @@ import { formatDurationLong } from "@/lib/format";
 import { usePlayer } from "@/context/PlayerContext";
 import { TrackList } from "@/components/TrackList";
 import { Loading } from "@/components/Loading";
-import { PlayIcon } from "@/components/icons";
+import { DetailHeader, PlayButton } from "@/components/DetailHeader";
 
 export function PlaylistDetail() {
   const { id } = useParams<{ id: string }>();
@@ -59,32 +59,19 @@ export function PlaylistDetail() {
 
   return (
     <div>
-      <div className="flex flex-col items-center gap-6 pt-8 sm:flex-row sm:items-end">
-        <img
-          src={coverArtUrl(playlist.coverArt, 400)}
-          alt=""
-          className="h-48 w-48 flex-shrink-0 rounded object-cover shadow-2xl sm:h-56 sm:w-56"
-        />
-        <div className="flex min-w-0 flex-col gap-2 text-center sm:text-left">
-          <span className="text-xs font-semibold uppercase">Playlist</span>
-          <h1 className="truncate text-3xl font-black sm:text-5xl">{playlist.name}</h1>
-          <p className="text-sm text-spotify-gray">
+      <DetailHeader
+        kind="Playlist"
+        title={playlist.name}
+        image={<img src={coverArtUrl(playlist.coverArt, 400)} alt="" className="h-full w-full rounded object-cover" />}
+        meta={
+          <>
             {songs.length} songs
             {playlist.duration ? ` · ${formatDurationLong(playlist.duration)}` : ""}
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-6 flex items-center gap-6">
-        <button
-          type="button"
-          onClick={() => playQueue(songs)}
-          disabled={songs.length === 0}
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-spotify-green text-black transition hover:scale-105 hover:bg-spotify-green-bright disabled:opacity-50"
-          aria-label="Play playlist"
-        >
-          <PlayIcon className="h-6 w-6 fill-current pl-1" />
-        </button>
+          </>
+        }
+      />
+      <div className="mt-4 flex items-center gap-6 sm:mt-6">
+        <PlayButton onClick={() => playQueue(songs)} disabled={songs.length === 0} label="Play playlist" />
         <button
           type="button"
           onClick={handleDelete}
@@ -94,7 +81,7 @@ export function PlaylistDetail() {
         </button>
       </div>
 
-      <div className="mt-8">
+      <div className="mt-4 sm:mt-8">
         {songs.length === 0 ? (
           <p className="text-spotify-gray">This playlist is empty. Add songs from an album or search.</p>
         ) : (

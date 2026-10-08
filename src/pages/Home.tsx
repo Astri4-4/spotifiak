@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { getAlbum, getAlbumList2, coverArtUrl, type AlbumID3 } from "@/api/subsonic";
 import { usePlayer } from "@/context/PlayerContext";
 import { MediaCard } from "@/components/MediaCard";
+import { CardGrid } from "@/components/CardGrid";
 import { Loading } from "@/components/Loading";
 
 function greeting(): string {
@@ -22,9 +23,9 @@ function AlbumRow({ title, albums }: { title: string; albums: AlbumID3[] }) {
   if (albums.length === 0) return null;
 
   return (
-    <section className="mb-10">
-      <h2 className="mb-4 text-xl font-bold sm:text-2xl">{title}</h2>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+    <section className="mb-8 md:mb-10">
+      <h2 className="mb-3 text-xl font-bold md:mb-4 sm:text-2xl">{title}</h2>
+      <CardGrid>
         {albums.map((album) => (
           <MediaCard
             key={album.id}
@@ -35,7 +36,7 @@ function AlbumRow({ title, albums }: { title: string; albums: AlbumID3[] }) {
             onPlay={() => handlePlay(album.id)}
           />
         ))}
-      </div>
+      </CardGrid>
     </section>
   );
 }
@@ -56,8 +57,8 @@ export function Home() {
   }
 
   return (
-    <div className="pt-6">
-      <h1 className="mb-6 text-2xl font-bold sm:text-3xl">{greeting()}</h1>
+    <div className="pt-4 md:pt-6">
+      <h1 className="mb-4 text-2xl md:mb-6 font-bold sm:text-3xl">{greeting()}</h1>
       <AlbumRow title="Recently added" albums={recent} />
       <AlbumRow title="Most played" albums={frequent} />
       <AlbumRow title="Explore your library" albums={random} />

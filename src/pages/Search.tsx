@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { coverArtUrl, search3, type SearchResult3 } from "@/api/subsonic";
 import { MediaCard } from "@/components/MediaCard";
+import { CardGrid } from "@/components/CardGrid";
 import { TrackList } from "@/components/TrackList";
 import { Loading } from "@/components/Loading";
 
@@ -49,11 +50,11 @@ export function Search() {
   }
 
   return (
-    <div className="pt-6">
+    <div className="pt-4 md:pt-6">
       {results.artist && results.artist.length > 0 && (
         <section className="mb-10">
           <h2 className="mb-4 text-xl font-bold">Artists</h2>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+          <CardGrid>
             {results.artist.map((artist) => (
               <MediaCard
                 key={artist.id}
@@ -64,14 +65,14 @@ export function Search() {
                 round
               />
             ))}
-          </div>
+          </CardGrid>
         </section>
       )}
 
       {results.album && results.album.length > 0 && (
         <section className="mb-10">
           <h2 className="mb-4 text-xl font-bold">Albums</h2>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+          <CardGrid>
             {results.album.map((album) => (
               <MediaCard
                 key={album.id}
@@ -81,7 +82,7 @@ export function Search() {
                 subtitle={album.artist}
               />
             ))}
-          </div>
+          </CardGrid>
         </section>
       )}
 

@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   coverArtUrl,
   getAlbumList2,
@@ -10,6 +11,9 @@ import {
 } from "@/api/subsonic";
 import { MediaCard } from "@/components/MediaCard";
 import { Loading } from "@/components/Loading";
+import { CardGrid } from "@/components/CardGrid";
+import { CreatePlaylistButton } from "@/components/CreatePlaylistButton";
+import { HeartIcon, PlusIcon } from "@/components/icons";
 
 type Tab = "playlists" | "artists" | "albums";
 
@@ -32,14 +36,22 @@ export function Library() {
   }, [tab, playlists, artists, albums]);
 
   return (
-    <div className="pt-6">
-      <h1 className="mb-6 text-2xl font-bold sm:text-3xl">Your Library</h1>
-      <div className="mb-6 flex gap-2">
+    <div className="pt-4 md:pt-6">
+      <div className="mb-4 flex items-center justify-between gap-4 md:mb-6">
+        <h1 className="text-2xl font-bold sm:text-3xl">Your Library</h1>
+        {/* The sidebar (with its own + button) is hidden on phones. */}
+        <CreatePlaylistButton onCreated={() => setPlaylists(null)}>
+          <span className="flex h-10 w-10 items-center justify-center rounded-full text-spotify-gray hover:bg-white/10 hover:text-white md:hidden">
+            <PlusIcon className="h-6 w-6" />
+          </span>
+        </CreatePlaylistButton>
+      </div>
+      <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 md:mx-0 md:mb-6 md:px-0">
         {TABS.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${
+            className={`flex-shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${
               tab === t.id ? "bg-white text-black" : "bg-spotify-highlight-black text-white hover:bg-white/20"
             }`}
           >
@@ -52,7 +64,16 @@ export function Library() {
         (playlists === null ? (
           <Loading />
         ) : (
-          <Grid>
+          <CardGrid>
+            <Link
+              to="/liked"
+              className="flex flex-col gap-3 rounded-md bg-spotify-elevated-black/60 p-3 transition-colors hover:bg-spotify-highlight-black sm:p-4"
+            >
+              <span className="flex aspect-square w-full items-center justify-center rounded bg-gradient-to-br from-indigo-700 to-blue-300 shadow-lg">
+                <HeartIcon filled className="h-1/3 w-1/3 text-white" />
+              </span>
+              <p className="truncate font-semibold text-white">Liked Songs</p>
+            </Link>
             {playlists.map((p) => (
               <MediaCard
                 key={p.id}
@@ -62,14 +83,14 @@ export function Library() {
                 subtitle={`${p.songCount} songs`}
               />
             ))}
-          </Grid>
+          </CardGrid>
         ))}
 
       {tab === "artists" &&
         (artists === null ? (
           <Loading />
         ) : (
-          <Grid>
+          <CardGrid>
             {artists.map((a) => (
               <MediaCard
                 key={a.id}
@@ -80,14 +101,14 @@ export function Library() {
                 round
               />
             ))}
-          </Grid>
+          </CardGrid>
         ))}
 
       {tab === "albums" &&
         (albums === null ? (
           <Loading />
         ) : (
-          <Grid>
+          <CardGrid>
             {albums.map((a) => (
               <MediaCard
                 key={a.id}
@@ -97,14 +118,8 @@ export function Library() {
                 subtitle={a.artist}
               />
             ))}
-          </Grid>
+          </CardGrid>
         ))}
     </div>
-  );
-}
-
-function Grid({ children }: { children: ReactNode }) {
-  return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">{children}</div>
   );
 }

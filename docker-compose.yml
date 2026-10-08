@@ -1,0 +1,17 @@
+services:
+  spotifion:
+    # Swap for ghcr.io/<your-github-username>/spotifion:latest once CI has
+    # pushed an image; "build:" is handy for local testing in the meantime.
+    build: .
+    image: ghcr.io/sachaguerin/spotifion:latest
+    container_name: spotifion
+    restart: unless-stopped
+    environment:
+      # Must be reachable from *inside* this container (it's never exposed
+      # to the browser directly - nginx proxies /rest/ to it server-side).
+      NAVIDROME_URL: ${NAVIDROME_URL:-https://navidrome.sachaguerin.fr}
+    ports:
+      - "8080:8080"
+    # If you're fronting this with Traefik/Caddy/nginx-proxy instead of the
+    # ports mapping above, drop the ports block and add your proxy's labels
+    # here, pointing at container port 8080.

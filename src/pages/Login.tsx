@@ -1,0 +1,94 @@
+import { useState, type FormEvent } from "react";
+import { useLocation, useNavigate, Navigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
+import { SubsonicError } from "@/api/client";
+
+export function Login() {
+  const { login, isAuthenticated, isLoading } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  if (!isLoading && isAuthenticated) {
+    const from = (location.state as { from?: Location })?.from;
+    return <Navigate to={from?.pathname ?? "/"} replace />;
+  }
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+    try {
+      await login(username, password);
+      navigate("/", { replace: true });
+    } catch (err) {
+      if (err instanceof SubsonicError) {
+        setError(
+          err.code === 40 || err.code === 41
+            ? "Wrong username or password."
+            : err.message,
+        );
+      } else {
+        setError("Couldn't reach the server. Is Navidrome running?");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-black px-4">
+      <div className="w-full max-w-sm rounded-lg bg-spotify-elevated-black p-8 shadow-2xl">
+        <div className="mb-8 flex flex-col items-center gap-3">
+          <svg viewBox="0 0 24 24" className="h-12 w-12">
+            <circle cx={12} cy={12} r={12} fill="#1DB954" />
+            <path d="M8 7.5v9l8-4.5z" fill="#121212" />
+          </svg>
+          <h1 className="text-2xl font-bold">Log in to Spotifion</h1>
+          <p className="text-center text-sm text-spotify-gray">
+            Use your Navidrome account credentials.
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <label className="flex flex-col gap-2 text-sm font-semibold">
+            Username
+            <input
+              autoFocus
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="rounded-md border border-white/20 bg-transparent px-3 py-3 text-sm outline-none focus:border-white"
+              autoComplete="username"
+              required
+            />
+          </label>
+          <label className="flex flex-col gap-2 text-sm font-semibold">
+            Password
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="rounded-md border border-white/20 bg-transparent px-3 py-3 text-sm outline-none focus:border-white"
+              autoComplete="current-password"
+              required
+            />
+          </label>
+
+          {error && <p className="text-sm text-red-400">{error}</p>}
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="mt-2 rounded-full bg-spotify-green py-3 text-sm font-bold text-black transition hover:scale-[1.02] hover:bg-spotify-green-bright disabled:opacity-50"
+          >
+            {submitting ? "Logging in..." : "Log In"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}

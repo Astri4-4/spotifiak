@@ -29,7 +29,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: spotifion
-          image: ghcr.io/sachaguerin/spotifion:latest
+          image: ghcr.io/astri4-4/spotifiak:latest
           imagePullPolicy: Always
           env:
             # Must be reachable from inside the pod. For Navidrome running in

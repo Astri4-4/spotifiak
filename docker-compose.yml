@@ -3,7 +3,7 @@ services:
     # Swap for ghcr.io/<your-github-username>/spotifion:latest once CI has
     # pushed an image; "build:" is handy for local testing in the meantime.
     build: .
-    image: ghcr.io/sachaguerin/spotifion:latest
+    image: ghcr.io/astri4-4/spotifiak:latest
     container_name: spotifion
     restart: unless-stopped
     environment:

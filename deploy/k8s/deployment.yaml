@@ -32,9 +32,6 @@ spec:
           image: ghcr.io/astri4-4/spotifiak:latest
           imagePullPolicy: Always
           env:
-            # Must be reachable from inside the pod. For Navidrome running in
-            # the same cluster use its Service, e.g.
-            # http://navidrome.media.svc.cluster.local:4533
             - name: NAVIDROME_URL
               value: https://navidrome.sachaguerin.fr
           ports:

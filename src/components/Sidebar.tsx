@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { getPlaylists } from "@/api/subsonic";
 import type { Playlist } from "@/types/subsonic";
-import { HeartIcon, HomeIcon, LibraryIcon, PlusIcon, SearchIcon } from "./icons";
+import { HeartIcon, HomeIcon, JamIcon, LibraryIcon, PlusIcon, SearchIcon } from "./icons";
+import { useJam } from "@/context/JamContext";
 import { CreatePlaylistButton } from "./CreatePlaylistButton";
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -12,6 +13,7 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
 
 export function Sidebar() {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const { jamId } = useJam();
 
   const refresh = () => {
     getPlaylists().then(setPlaylists).catch(() => void 0);
@@ -30,6 +32,11 @@ export function Sidebar() {
           <NavLink to="/search" className={navLinkClass}>
             <SearchIcon className="h-6 w-6" />
             Search
+          </NavLink>
+          <NavLink to="/jam" className={navLinkClass}>
+            <JamIcon className="h-6 w-6" />
+            Jam
+            {jamId && <span className="ml-auto h-2 w-2 rounded-full bg-spotify-green" aria-label="In a Jam" />}
           </NavLink>
         </nav>
       </div>

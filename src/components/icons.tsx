@@ -148,3 +148,37 @@ export function ChevronRightIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+export function JamIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <circle cx={9} cy={8} r={3.5} />
+      <path d="M2.5 20c.6-3.4 3.3-5.5 6.5-5.5s5.9 2.1 6.5 5.5" />
+      <path d="M16 4.8a3.5 3.5 0 0 1 0 6.4M18.5 14.9c1.6.8 2.7 2.6 3 5.1" />
+    </svg>
+  );
+}
+
+export function QueueAddIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" {...props}>
+      <path d="M3 6h12M3 12h12M3 18h7M18 13v8M14 17h8" />
+    </svg>
+  );
+}
+
+export function CheckIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="m5 12.5 4.5 4.5L19 7.5" />
+    </svg>
+  );
+}
+
+export function CloseIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" {...props}>
+      <path d="M6 6l12 12M18 6 6 18" />
+    </svg>
+  );
+}

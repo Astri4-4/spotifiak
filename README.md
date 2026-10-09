@@ -4,16 +4,28 @@ A Spotify-styled web client for a self-hosted [Navidrome](https://www.navidrome.
 
 ## How it's wired together
 
-- **Frontend**: a single-page React app. There's no custom backend of its own.
+- **Frontend**: a single-page React app. The only custom backend is the small Jam server (below).
 - **Auth**: you log in with your real Navidrome username/password. The app derives a Subsonic token-auth pair (salt + `md5(password + salt)`) client-side, verifies it with `ping`, and stores *that* (never the password) in `localStorage`. Each Navidrome user who logs in gets their own library, playlists, and scrobbles.
 - **Talking to Navidrome**: in production, nginx (inside the Docker image) proxies every `/rest/*` request straight through to your real Navidrome server, configured via the `NAVIDROME_URL` environment variable. The browser only ever talks to this app's own origin, so there's no CORS configuration needed on Navidrome's end, and `NAVIDROME_URL` doesn't need to be reachable from the client's network - only from inside the container/your server.
 - **Playback**: a single `<audio>` element streams directly from Navidrome's `/rest/stream` endpoint (letting Navidrome transcode if needed) and reports plays back via `/rest/scrobble`.
+
+- **Jam** (listening together): `server/jam.mjs` is a dependency-free Node server that holds shared sessions - the queue, who's listening, and a playback clock. Clients follow it over Server-Sent Events and send actions with `POST`; every listener still streams the audio from Navidrome on their own device and re-syncs to the shared playhead. Requests are authenticated by checking the caller's Subsonic token against Navidrome's `ping`, so only users of your Navidrome server can start or join a Jam. Sessions live in memory: restarting the container ends any running Jams.
+
+## Jam
+
+Open **Jam** in the sidebar (or the tab bar on mobile) and start one, then share the invite link or 6-character code. Guests log in with their own account on the same Navidrome server.
+
+- Everyone can add songs; playing something as a guest queues it for the group.
+- Only the host controls playback (play/pause, skip, seek) unless they turn on *Let guests control playback*.
+- The host can end the Jam for everyone; guests can leave at any time. A Jam nobody is connected to is cleaned up after 15 minutes.
+- Listeners stay in sync to within a fraction of a second when Navidrome serves the original file. If Navidrome *transcodes* a track, the stream can't be seeked, so someone joining mid-song hears it from the start until the next track.
 
 ## Local development
 
 ```bash
 npm install
-npm run dev
+npm run dev   # the app
+npm run jam   # the Jam server, in a second terminal (only needed for Jam)
 ```
 
 > This repo doesn't ship a `package-lock.json` yet (it was scaffolded without a local Node install) - the first `npm install` you run will create one. Please commit it, so CI and Docker builds become fully reproducible.
@@ -24,6 +36,8 @@ By default, `vite dev` proxies `/rest` to `https://navidrome.sachaguerin.fr`. To
 VITE_DEV_NAVIDROME_URL=http://localhost:4533
 ```
 
+`/jam-api` is proxied to the Jam server on `http://127.0.0.1:3001` (override with `VITE_DEV_JAM_URL`). The Jam server validates logins against `NAVIDROME_URL` (default `https://navidrome.sachaguerin.fr`), so run it as `NAVIDROME_URL=http://localhost:4533 npm run jam` when using a different server.
+
 ## Running with Docker
 
 ```bash
@@ -33,7 +47,26 @@ docker compose up -d --build
 
 The app listens on `:8080` inside the container (mapped to `:8080` on the host by the default compose file). Put it behind whatever reverse proxy/TLS terminator you already use for your other self-hosted services (Traefik, Caddy, nginx-proxy, ...).
 
+The image also runs the Jam server next to nginx (started by `docker/40-start-jam-server.sh`, proxied at `/jam-api/`) - no extra container or port needed.
+
 `NAVIDROME_URL` must be reachable **from inside the container** - e.g. `http://navidrome:4533` if Navidrome is another container on the same Docker network, or `https://navidrome.sachaguerin.fr` if it's reachable that way from your host/network.
+
+## Running on Kubernetes
+
+Manifests live in `deploy/k8s/` (plain YAML + a kustomization):
+
+```bash
+# edit NAVIDROME_URL in deployment.yaml and the host in ingress.yaml first
+kubectl apply -k deploy/k8s
+```
+
+Things worth knowing:
+
+- **One replica only.** Jam sessions live in the Jam server's memory, so the Deployment runs `replicas: 1` with the `Recreate` strategy. Scaling out would put guests on pods that don't know the host's Jam. Redeploying or rescheduling the pod ends any running Jams.
+- **Locked-down by default.** The image is based on `nginx-unprivileged` and runs as uid 101, so it passes the `restricted` Pod Security Standard (non-root, no capabilities, read-only root filesystem with `emptyDir`s for `/etc/nginx/conf.d`, `/tmp` and `/var/cache/nginx`).
+- **Probes.** Readiness hits `/jam-api/healthz` (nginx + Jam server); liveness hits `/healthz` (nginx only - the Jam server is restarted inside the container if it crashes).
+- **Ingress.** Jam's event stream is a long-lived Server-Sent Events connection. With ingress-nginx, keep the annotations from `ingress.yaml` (buffering off, 1h read timeout); other controllers need the equivalent settings, or Jam updates arrive late or the stream drops every minute.
+- **Navidrome in the same cluster?** Point `NAVIDROME_URL` at its Service, e.g. `http://navidrome.media.svc.cluster.local:4533`.
 
 ## CI/CD
 

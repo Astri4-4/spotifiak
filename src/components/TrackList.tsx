@@ -1,9 +1,10 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { Child } from "@/types/subsonic";
 import { coverArtUrl } from "@/api/subsonic";
 import { formatDuration } from "@/lib/format";
 import { usePlayer } from "@/context/PlayerContext";
-import { HeartIcon, PauseIcon, PlayIcon } from "./icons";
+import { CheckIcon, HeartIcon, PauseIcon, PlayIcon, QueueAddIcon } from "./icons";
 
 // Phones: title | actions. md: # | title | actions. lg+: # | title | album | actions.
 const COLUMNS =
@@ -29,12 +30,24 @@ export function TrackList({
   starredIds,
   onToggleStar,
 }: TrackListProps) {
-  const { current, isPlaying, togglePlay, playQueue } = usePlayer();
+  const { current, isPlaying, togglePlay, playQueue, enqueue, inJam } = usePlayer();
+  const [justQueued, setJustQueued] = useState<string | null>(null);
+
+  function handleQueue(track: Child) {
+    enqueue([track]);
+    setJustQueued(track.id);
+    window.setTimeout(() => setJustQueued((id) => (id === track.id ? null : id)), 1500);
+  }
 
   function handleRowClick(index: number) {
     const track = tracks[index];
     if (current?.id === track.id) {
       togglePlay();
+      return;
+    }
+    if (inJam) {
+      // Don't flood a shared queue with the rest of the album/playlist.
+      playQueue([track]);
       return;
     }
     const fullQueue = queue ?? tracks;
@@ -126,6 +139,22 @@ export function TrackList({
               </span>
 
               <div className="flex items-center gap-2 justify-self-end text-spotify-gray md:gap-3">
+                {inJam && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleQueue(track);
+                    }}
+                    className={`flex h-8 w-8 items-center justify-center hover:text-white md:h-auto md:w-auto md:opacity-0 md:group-hover:opacity-100 ${
+                      justQueued === track.id ? "!opacity-100 text-spotify-green" : ""
+                    }`}
+                    aria-label="Add to Jam queue"
+                    title="Add to Jam queue"
+                  >
+                    {justQueued === track.id ? <CheckIcon className="h-4 w-4" /> : <QueueAddIcon className="h-4 w-4" />}
+                  </button>
+                )}
                 {onToggleStar && (
                   <button
                     type="button"

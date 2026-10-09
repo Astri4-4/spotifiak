@@ -9,6 +9,8 @@ export default defineConfig(({ mode }) => {
   // your real Navidrome instance so the browser never hits CORS issues.
   // Override by setting VITE_DEV_NAVIDROME_URL in a local .env file.
   const navidromeTarget = env.VITE_DEV_NAVIDROME_URL || "https://navidrome.sachaguerin.fr";
+  // The Jam server (server/jam.mjs) - start it with `npm run jam`.
+  const jamTarget = env.VITE_DEV_JAM_URL || "http://127.0.0.1:3001";
 
   return {
     plugins: [react()],
@@ -22,6 +24,10 @@ export default defineConfig(({ mode }) => {
       proxy: {
         "/rest": {
           target: navidromeTarget,
+          changeOrigin: true,
+        },
+        "/jam-api": {
+          target: jamTarget,
           changeOrigin: true,
         },
       },

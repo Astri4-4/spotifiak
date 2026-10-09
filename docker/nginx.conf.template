@@ -39,6 +39,36 @@ server {
         client_max_body_size 50m;
     }
 
+    # Jam server (server/jam.mjs), started next to nginx by
+    # docker/40-start-jam-server.sh. Its event streams are long-lived
+    # Server-Sent Events, so no buffering and a long read timeout.
+    location /jam-api/ {
+        proxy_pass http://127.0.0.1:3001;
+        # nginx hides upstream X-Accel-* headers by default; pass this one on
+        # so an outer proxy (e.g. ingress-nginx) doesn't buffer the SSE stream.
+        proxy_pass_header X-Accel-Buffering;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 1h;
+        client_max_body_size 1m;
+    }
+
+    # Readiness check: answered by the Jam server, so it fails if either
+    # nginx or the Jam server is down. Kept out of the access log.
+    location = /jam-api/healthz {
+        access_log off;
+        proxy_pass http://127.0.0.1:3001;
+    }
+
+    # nginx-only liveness check (no upstreams involved).
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
     # Single-page app: let React Router handle unknown paths.
     location / {
         try_files $uri $uri/ /index.html;

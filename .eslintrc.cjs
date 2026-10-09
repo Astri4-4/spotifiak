@@ -10,6 +10,7 @@ module.exports = {
   parserOptions: { ecmaVersion: "latest", sourceType: "module", ecmaFeatures: { jsx: true } },
   plugins: ["@typescript-eslint", "react-refresh"],
   ignorePatterns: ["dist", "node_modules", "*.cjs", "*.config.ts", "*.config.js"],
+  overrides: [{ files: ["server/**/*.mjs"], env: { node: true, browser: false } }],
   rules: {
     "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
     "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],

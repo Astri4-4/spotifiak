@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { usePlayer } from "@/context/PlayerContext";
+import { useJam } from "@/context/JamContext";
 import { coverArtUrl, star, unstar } from "@/api/subsonic";
 import { formatDuration } from "@/lib/format";
 import {
   HeartIcon,
+  JamIcon,
   PauseIcon,
   PlayIcon,
   RepeatIcon,
@@ -30,14 +32,20 @@ export function NowPlayingBar() {
     setVolume,
     toggleShuffle,
     cycleRepeat,
+    inJam,
+    canControl,
+    audioBlocked,
   } = usePlayer();
+  const { jam } = useJam();
+  // Guests without control can't pause/skip - except to start audio the browser blocked.
+  const canTogglePlay = canControl || audioBlocked;
 
   const [starred, setStarred] = useState(false);
 
   if (!current) {
     return (
       <footer className="hidden h-20 flex-shrink-0 items-center justify-center md:flex lg:h-24 border-t border-white/10 bg-spotify-base-black px-4 text-sm text-spotify-gray">
-        Pick something to play
+        {inJam ? "The Jam's queue is empty. Play or add a song for everyone." : "Pick something to play"}
       </footer>
     );
   }
@@ -75,6 +83,11 @@ export function NowPlayingBar() {
           <p className="truncate text-sm font-medium">{current.title}</p>
           <p className="truncate text-xs text-spotify-gray">{current.artist}</p>
         </div>
+        {inJam && (
+          <Link to="/jam" aria-label="Open Jam" className="flex h-10 w-10 flex-shrink-0 items-center justify-center text-spotify-green">
+            <JamIcon className="h-5 w-5" />
+          </Link>
+        )}
         <button
           type="button"
           onClick={toggleStar}
@@ -86,16 +99,18 @@ export function NowPlayingBar() {
         <button
           type="button"
           onClick={togglePlay}
+          disabled={!canTogglePlay}
           aria-label={isPlaying ? "Pause" : "Play"}
-          className="flex h-10 w-10 flex-shrink-0 items-center justify-center text-white"
+          className="flex h-10 w-10 flex-shrink-0 items-center justify-center text-white disabled:opacity-40"
         >
           {isPlaying ? <PauseIcon className="h-6 w-6 fill-current" /> : <PlayIcon className="h-6 w-6 fill-current" />}
         </button>
         <button
           type="button"
           onClick={playNext}
+          disabled={!canControl}
           aria-label="Next"
-          className="flex h-10 w-10 flex-shrink-0 items-center justify-center text-white"
+          className="flex h-10 w-10 flex-shrink-0 items-center justify-center text-white disabled:opacity-40"
         >
           <SkipNextIcon className="h-5 w-5 fill-current" />
         </button>
@@ -140,29 +155,43 @@ export function NowPlayingBar() {
               type="button"
               onClick={toggleShuffle}
               aria-label="Shuffle"
-              className={shuffle ? "text-spotify-green" : "text-spotify-gray hover:text-white"}
+              // A Jam plays its queue in order; keep the slot so controls don't shift.
+              className={`${inJam ? "invisible" : ""} ${shuffle ? "text-spotify-green" : "text-spotify-gray hover:text-white"}`}
             >
               <ShuffleIcon className="h-4 w-4" />
             </button>
-            <button type="button" onClick={playPrevious} aria-label="Previous" className="text-spotify-gray hover:text-white">
+            <button
+              type="button"
+              onClick={playPrevious}
+              disabled={!canControl}
+              aria-label="Previous"
+              className="text-spotify-gray hover:text-white disabled:opacity-40 disabled:hover:text-spotify-gray"
+            >
               <SkipPrevIcon className="h-5 w-5 fill-current" />
             </button>
             <button
               type="button"
               onClick={togglePlay}
+              disabled={!canTogglePlay}
               aria-label={isPlaying ? "Pause" : "Play"}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-black hover:scale-105"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-black hover:scale-105 disabled:opacity-40 disabled:hover:scale-100"
             >
               {isPlaying ? <PauseIcon className="h-4 w-4 fill-current" /> : <PlayIcon className="h-4 w-4 fill-current pl-0.5" />}
             </button>
-            <button type="button" onClick={playNext} aria-label="Next" className="text-spotify-gray hover:text-white">
+            <button
+              type="button"
+              onClick={playNext}
+              disabled={!canControl}
+              aria-label="Next"
+              className="text-spotify-gray hover:text-white disabled:opacity-40 disabled:hover:text-spotify-gray"
+            >
               <SkipNextIcon className="h-5 w-5 fill-current" />
             </button>
             <button
               type="button"
               onClick={cycleRepeat}
               aria-label="Repeat"
-              className={`relative ${repeat !== "off" ? "text-spotify-green" : "text-spotify-gray hover:text-white"}`}
+              className={`relative ${inJam ? "invisible" : ""} ${repeat !== "off" ? "text-spotify-green" : "text-spotify-gray hover:text-white"}`}
             >
               <RepeatIcon className="h-4 w-4" />
               {repeat === "one" && (
@@ -178,6 +207,7 @@ export function NowPlayingBar() {
               min={0}
               max={total}
               value={Math.min(progress, total)}
+              disabled={!canControl}
               onChange={(e) => seek(Number(e.target.value))}
             />
             <span className="hidden w-10 flex-shrink-0 tabular-nums lg:block">{formatDuration(total)}</span>
@@ -185,6 +215,16 @@ export function NowPlayingBar() {
         </div>
 
         <div className="flex min-w-0 items-center justify-end gap-2 pr-1">
+          <Link
+            to="/jam"
+            title={inJam ? "Open Jam" : "Start a Jam"}
+            className={`mr-1 flex flex-shrink-0 items-center gap-1.5 rounded-full px-2 py-1 text-xs font-semibold ${
+              inJam ? "bg-spotify-green/15 text-spotify-green" : "text-spotify-gray hover:text-white"
+            }`}
+          >
+            <JamIcon className="h-4 w-4" />
+            {inJam && jam && <span className="hidden lg:inline">{jam.members.length}</span>}
+          </Link>
           <VolumeIcon
             level={volume === 0 ? 0 : volume < 0.5 ? 1 : 2}
             className="h-4 w-4 flex-shrink-0 fill-spotify-gray"

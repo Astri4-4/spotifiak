@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spotifion
+  labels:
+    app.kubernetes.io/name: spotifion
+spec:
+  # Jam sessions live in the Jam server's memory, so there must be exactly
+  # one pod: with more, a guest could land on a pod that doesn't know the
+  # host's Jam. Recreate avoids two pods briefly splitting new Jams during a
+  # rollout (running Jams end on redeploy either way).
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: spotifion
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: spotifion
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: spotifion
+          image: ghcr.io/sachaguerin/spotifion:latest
+          imagePullPolicy: Always
+          env:
+            # Must be reachable from inside the pod. For Navidrome running in
+            # the same cluster use its Service, e.g.
+            # http://navidrome.media.svc.cluster.local:4533
+            - name: NAVIDROME_URL
+              value: https://navidrome.sachaguerin.fr
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /jam-api/healthz
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            # nginx only: the Jam server is already restarted in-container
+            # by docker/40-start-jam-server.sh if it crashes.
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          # Writable paths nginx needs with a read-only root filesystem:
+          # the rendered config (envsubst at startup), pid file and temp dirs.
+          volumeMounts:
+            - name: nginx-conf
+              mountPath: /etc/nginx/conf.d
+            - name: tmp
+              mountPath: /tmp
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+      volumes:
+        - name: nginx-conf
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        - name: nginx-cache
+          emptyDir: {}

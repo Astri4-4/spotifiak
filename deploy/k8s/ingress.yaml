@@ -1,0 +1,30 @@
+# Example for ingress-nginx; adjust host, TLS and class for your cluster.
+# The annotations matter for Jam: its event stream is a long-lived
+# Server-Sent Events connection that must not be buffered or cut off, and
+# audio streams from Navidrome can be slow to start.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: spotifion
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    # cert-manager.io/cluster-issuer: letsencrypt
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: spotifion.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: spotifion
+                port:
+                  name: http
+  # tls:
+  #   - hosts: [spotifion.example.com]
+  #     secretName: spotifion-tls

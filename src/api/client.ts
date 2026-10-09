@@ -96,6 +96,13 @@ function toSearchParams(params: Record<string, unknown>): URLSearchParams {
   return search;
 }
 
+/** The stored credentials as query params, for other services that authenticate against Navidrome (the Jam server). */
+export function authSearchParams(extra: Record<string, unknown> = {}): URLSearchParams {
+  const c = loadCredentials();
+  if (!c) throw new AuthError();
+  return toSearchParams({ ...authParams(c), ...extra });
+}
+
 /** Builds a fully-qualified, same-origin Subsonic request URL (e.g. for <img>/<audio> src). */
 export function buildUrl(
   endpoint: string,

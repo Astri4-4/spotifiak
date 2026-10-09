@@ -1,0 +1,431 @@
+// Spotifion Jam server: shared listening sessions on top of Navidrome.
+//
+// Plain Node (no dependencies). Clients receive session state over
+// Server-Sent Events and send actions with POST requests. The server never
+// touches audio: it only keeps the shared queue and a playback clock
+// ("track X, position P at server time T, playing/paused"), and every
+// listener streams the audio straight from Navidrome on their own device.
+//
+// Every request carries the caller's Subsonic token-auth params (u/t/s),
+// which are checked against Navidrome's `ping`, so only users of that
+// Navidrome server can create or join Jams.
+//
+//   POST /jam-api/sessions                 create a Jam (caller is host)
+//   GET  /jam-api/sessions/:id             session snapshot (join preview)
+//   GET  /jam-api/sessions/:id/events      SSE stream of session state
+//   POST /jam-api/sessions/:id/actions     { type, ... } - see ACTIONS
+//   GET  /jam-api/healthz                  liveness/readiness (no auth)
+
+import http from "node:http";
+import crypto from "node:crypto";
+
+const PORT = Number(process.env.JAM_PORT || 3001);
+const HOST = process.env.JAM_HOST || "127.0.0.1";
+const NAVIDROME_URL = (process.env.NAVIDROME_URL || "https://navidrome.sachaguerin.fr").replace(/\/+$/, "");
+
+const AUTH_TTL_MS = 10 * 60 * 1000;
+const IDLE_SESSION_TTL_MS = 15 * 60 * 1000;
+const HEARTBEAT_MS = 15 * 1000;
+const MAX_QUEUE = 1000;
+const MAX_TRACKS_PER_ACTION = 200;
+const MAX_BODY_BYTES = 1024 * 1024;
+const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I
+
+/** @type {Map<string, Session>} */
+const sessions = new Map();
+/** @type {Map<string, { username: string, expires: number }>} */
+const authCache = new Map();
+
+/**
+ * @typedef {{ uid: string, addedBy: string, track: Record<string, string | number> }} QueueItem
+ * @typedef {{ res: http.ServerResponse, username: string, clientId: string }} Listener
+ * @typedef {{
+ *   id: string,
+ *   host: string,
+ *   guestsCanControl: boolean,
+ *   queue: QueueItem[],
+ *   currentIndex: number,
+ *   playing: boolean,
+ *   position: number,
+ *   positionAt: number,
+ *   version: number,
+ *   listeners: Set<Listener>,
+ *   idleSince: number | null,
+ * }} Session
+ */
+
+// ---- auth -------------------------------------------------------------
+
+/** Resolves to the Navidrome username if u/t/s are valid credentials, else null. */
+async function authenticate(params) {
+  const u = params.get("u");
+  const t = params.get("t");
+  const s = params.get("s");
+  if (!u || !t || !s) return null;
+
+  const key = `${u}\n${t}\n${s}`;
+  const cached = authCache.get(key);
+  if (cached && cached.expires > Date.now()) return cached.username;
+
+  const query = new URLSearchParams({ u, t, s, v: "1.16.1", c: "spotifion-jam", f: "json" });
+  try {
+    const res = await fetch(`${NAVIDROME_URL}/rest/ping?${query}`, { signal: AbortSignal.timeout(8000) });
+    const data = await res.json();
+    if (data?.["subsonic-response"]?.status !== "ok") return null;
+  } catch (err) {
+    console.error(`[jam] could not reach Navidrome at ${NAVIDROME_URL}:`, err.message);
+    return null;
+  }
+  authCache.set(key, { username: u, expires: Date.now() + AUTH_TTL_MS });
+  return u;
+}
+
+// ---- session state ------------------------------------------------------
+
+function newCode() {
+  for (;;) {
+    const bytes = crypto.randomBytes(6);
+    const code = Array.from(bytes, (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join("");
+    if (!sessions.has(code)) return code;
+  }
+}
+
+/** Where the shared playhead is right now, in seconds. */
+function currentPosition(session) {
+  if (!session.playing) return session.position;
+  return session.position + (Date.now() - session.positionAt) / 1000;
+}
+
+function setPosition(session, seconds) {
+  session.position = Math.max(0, seconds);
+  session.positionAt = Date.now();
+}
+
+function startTrackAt(session, index) {
+  session.currentIndex = index;
+  session.playing = index >= 0 && index < session.queue.length;
+  setPosition(session, 0);
+}
+
+function hasCurrent(session) {
+  return session.currentIndex >= 0 && session.currentIndex < session.queue.length;
+}
+
+/** Moves to the next track; running off the end stops playback. */
+function advance(session) {
+  startTrackAt(session, Math.min(session.currentIndex + 1, session.queue.length));
+}
+
+function members(session) {
+  const byClient = new Map();
+  for (const l of session.listeners) byClient.set(l.clientId, { username: l.username, clientId: l.clientId });
+  return [...byClient.values()];
+}
+
+function publicState(session) {
+  return {
+    id: session.id,
+    host: session.host,
+    guestsCanControl: session.guestsCanControl,
+    queue: session.queue,
+    currentIndex: session.currentIndex,
+    playing: session.playing,
+    position: session.position,
+    positionAt: session.positionAt,
+    version: session.version,
+    members: members(session),
+  };
+}
+
+function send(res, event, data) {
+  res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+}
+
+function broadcast(session) {
+  session.version++;
+  const payload = { state: publicState(session), now: Date.now() };
+  for (const l of session.listeners) send(l.res, "state", payload);
+}
+
+const TRACK_FIELDS = {
+  id: "string",
+  title: "string",
+  artist: "string",
+  artistId: "string",
+  album: "string",
+  albumId: "string",
+  coverArt: "string",
+  duration: "number",
+};
+
+/** Keeps only the track fields the UI needs, with the right types. */
+function sanitizeTracks(tracks) {
+  if (!Array.isArray(tracks)) return [];
+  return tracks
+    .slice(0, MAX_TRACKS_PER_ACTION)
+    .filter((t) => t && typeof t.id === "string" && typeof t.title === "string")
+    .map((t) => {
+      const clean = {};
+      for (const [key, type] of Object.entries(TRACK_FIELDS)) {
+        if (typeof t[key] === type) clean[key] = type === "string" ? t[key].slice(0, 500) : t[key];
+      }
+      return clean;
+    });
+}
+
+function toItems(tracks, addedBy) {
+  return sanitizeTracks(tracks).map((track) => ({ uid: crypto.randomUUID(), addedBy, track }));
+}
+
+class HttpError extends Error {
+  constructor(status, message) {
+    super(message);
+    this.status = status;
+  }
+}
+
+function requireControl(session, username) {
+  if (username !== session.host && !session.guestsCanControl) {
+    throw new HttpError(403, "Only the host can control playback in this Jam.");
+  }
+}
+
+function requireHost(session, username) {
+  if (username !== session.host) throw new HttpError(403, "Only the host can do that.");
+}
+
+function insertItems(session, at, items) {
+  if (session.queue.length + items.length > MAX_QUEUE) throw new HttpError(400, "The Jam queue is full.");
+  session.queue.splice(at, 0, ...items);
+}
+
+/** Each handler mutates the session; the caller then broadcasts the new state. */
+const ACTIONS = {
+  // Anyone can add songs to the end of the queue.
+  add(session, username, body) {
+    const items = toItems(body.tracks, username);
+    if (items.length === 0) throw new HttpError(400, "No tracks to add.");
+    const wasIdle = !hasCurrent(session);
+    const start = session.queue.length;
+    insertItems(session, start, items);
+    if (wasIdle) startTrackAt(session, start);
+  },
+
+  // Play right now: insert after the current track and jump to it.
+  playNow(session, username, body) {
+    requireControl(session, username);
+    const items = toItems(body.tracks, username);
+    if (items.length === 0) throw new HttpError(400, "No tracks to play.");
+    const at = hasCurrent(session) ? session.currentIndex + 1 : session.queue.length;
+    insertItems(session, at, items);
+    startTrackAt(session, at);
+  },
+
+  jump(session, username, body) {
+    requireControl(session, username);
+    const index = session.queue.findIndex((i) => i.uid === body.uid);
+    if (index === -1) throw new HttpError(404, "That song is no longer in the queue.");
+    startTrackAt(session, index);
+  },
+
+  pause(session, username) {
+    requireControl(session, username);
+    if (!session.playing) return;
+    setPosition(session, currentPosition(session));
+    session.playing = false;
+  },
+
+  resume(session, username) {
+    requireControl(session, username);
+    if (!hasCurrent(session)) return;
+    setPosition(session, session.position);
+    session.playing = true;
+  },
+
+  seek(session, username, body) {
+    requireControl(session, username);
+    if (typeof body.position !== "number" || !Number.isFinite(body.position)) {
+      throw new HttpError(400, "Invalid position.");
+    }
+    setPosition(session, body.position);
+  },
+
+  next(session, username) {
+    requireControl(session, username);
+    advance(session);
+  },
+
+  previous(session, username) {
+    requireControl(session, username);
+    if (hasCurrent(session) && currentPosition(session) > 3) setPosition(session, 0);
+    else startTrackAt(session, Math.max(0, Math.min(session.currentIndex, session.queue.length) - 1));
+  },
+
+  // Sent by every listener when their copy of a track finishes; only the
+  // first report for the current track counts.
+  ended(session, _username, body) {
+    const current = session.queue[session.currentIndex];
+    if (!current || current.uid !== body.uid) return false;
+    advance(session);
+  },
+
+  // Host and controllers can remove anything; guests only their own songs.
+  remove(session, username, body) {
+    const index = session.queue.findIndex((i) => i.uid === body.uid);
+    if (index === -1) return false;
+    const item = session.queue[index];
+    if (item.addedBy !== username) requireControl(session, username);
+    session.queue.splice(index, 1);
+    if (index < session.currentIndex) session.currentIndex--;
+    else if (index === session.currentIndex) startTrackAt(session, index);
+  },
+
+  setGuestControl(session, username, body) {
+    requireHost(session, username);
+    session.guestsCanControl = Boolean(body.value);
+  },
+};
+
+function endSession(session) {
+  for (const l of session.listeners) {
+    send(l.res, "ended", { reason: "The host ended the Jam." });
+    l.res.end();
+  }
+  sessions.delete(session.id);
+}
+
+// ---- HTTP ---------------------------------------------------------------
+
+function json(res, status, body) {
+  res.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+  res.end(body === undefined ? "" : JSON.stringify(body));
+}
+
+async function readJson(req) {
+  let size = 0;
+  const chunks = [];
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > MAX_BODY_BYTES) throw new HttpError(413, "Request too large.");
+    chunks.push(chunk);
+  }
+  try {
+    const body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+    if (!body || typeof body !== "object") throw new Error();
+    return body;
+  } catch {
+    throw new HttpError(400, "Invalid JSON body.");
+  }
+}
+
+function openEvents(req, res, session, username, clientId) {
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-store",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no", // tell nginx not to buffer the stream
+  });
+  res.write("retry: 3000\n\n");
+
+  const listener = { res, username, clientId };
+  const isNewMember = !members(session).some((m) => m.clientId === clientId);
+  session.listeners.add(listener);
+  session.idleSince = null;
+  if (isNewMember) broadcast(session);
+  else send(res, "state", { state: publicState(session), now: Date.now() });
+
+  req.on("close", () => {
+    session.listeners.delete(listener);
+    if (session.listeners.size === 0) session.idleSince = Date.now();
+    if (sessions.has(session.id) && !members(session).some((m) => m.clientId === clientId)) broadcast(session);
+  });
+}
+
+async function handle(req, res) {
+  const url = new URL(req.url, "http://jam.local");
+  // Unauthenticated health check for container/Kubernetes probes.
+  if (url.pathname === "/jam-api/healthz") return json(res, 200, { ok: true, sessions: sessions.size });
+  const match = url.pathname.match(/^\/jam-api\/sessions(?:\/([A-Z0-9]{6})(\/events|\/actions)?)?\/?$/);
+  if (!match) return json(res, 404, { error: "Not found." });
+  const [, id, sub] = match;
+
+  const username = await authenticate(url.searchParams);
+  if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });
+
+  if (!id) {
+    if (req.method !== "POST") return json(res, 405, { error: "Method not allowed." });
+    const session = {
+      id: newCode(),
+      host: username,
+      guestsCanControl: false,
+      queue: [],
+      currentIndex: -1,
+      playing: false,
+      position: 0,
+      positionAt: Date.now(),
+      version: 0,
+      listeners: new Set(),
+      idleSince: Date.now(),
+    };
+    sessions.set(session.id, session);
+    console.log(`[jam] ${username} started Jam ${session.id}`);
+    return json(res, 201, { id: session.id });
+  }
+
+  const session = sessions.get(id);
+  if (!session) return json(res, 404, { error: "This Jam has ended or doesn't exist." });
+
+  if (!sub) {
+    if (req.method !== "GET") return json(res, 405, { error: "Method not allowed." });
+    return json(res, 200, { state: publicState(session), now: Date.now() });
+  }
+
+  if (sub === "/events") {
+    if (req.method !== "GET") return json(res, 405, { error: "Method not allowed." });
+    const clientId = url.searchParams.get("clientId");
+    if (!clientId || clientId.length > 100) return json(res, 400, { error: "Missing clientId." });
+    return openEvents(req, res, session, username, clientId);
+  }
+
+  if (req.method !== "POST") return json(res, 405, { error: "Method not allowed." });
+  const body = await readJson(req);
+
+  if (body.type === "end") {
+    requireHost(session, username);
+    console.log(`[jam] ${username} ended Jam ${session.id}`);
+    endSession(session);
+    return json(res, 204);
+  }
+
+  const action = Object.hasOwn(ACTIONS, body.type) ? ACTIONS[body.type] : null;
+  if (!action) return json(res, 400, { error: "Unknown action." });
+  if (action(session, username, body) !== false) broadcast(session);
+  return json(res, 204);
+}
+
+const server = http.createServer((req, res) => {
+  handle(req, res).catch((err) => {
+    if (res.headersSent) return res.end();
+    if (err instanceof HttpError) return json(res, err.status, { error: err.message });
+    console.error("[jam] unexpected error:", err);
+    json(res, 500, { error: "Internal error." });
+  });
+});
+
+// Keep SSE connections alive through proxies, refresh client clock offsets,
+// and drop sessions nobody has been connected to for a while.
+setInterval(() => {
+  const now = Date.now();
+  for (const session of sessions.values()) {
+    for (const l of session.listeners) send(l.res, "ping", { now });
+    if (session.idleSince !== null && now - session.idleSince > IDLE_SESSION_TTL_MS) {
+      console.log(`[jam] Jam ${session.id} expired (no listeners)`);
+      sessions.delete(session.id);
+    }
+  }
+  for (const [key, entry] of authCache) if (entry.expires <= now) authCache.delete(key);
+}, HEARTBEAT_MS);
+
+server.listen(PORT, HOST, () => {
+  console.log(`[jam] listening on http://${HOST}:${PORT} (Navidrome: ${NAVIDROME_URL})`);
+});

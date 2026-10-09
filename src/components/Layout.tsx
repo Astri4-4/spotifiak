@@ -4,6 +4,7 @@ import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { NowPlayingBar } from "./NowPlayingBar";
 import { BottomNav } from "./BottomNav";
+import { JamBanner } from "./JamBanner";
 
 export function Layout() {
   const mainRef = useRef<HTMLElement>(null);
@@ -30,6 +31,7 @@ export function Layout() {
           </div>
         </main>
       </div>
+      <JamBanner />
       <NowPlayingBar />
       <BottomNav />
     </div>

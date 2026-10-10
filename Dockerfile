@@ -5,6 +5,8 @@ FROM node:20-alpine AS build
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
+# Electron is only needed for the desktop app; skip its ~100 MB binary.
+ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
 RUN npm install
 
 COPY . .

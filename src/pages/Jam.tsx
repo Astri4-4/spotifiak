@@ -1,10 +1,11 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useJam } from "@/context/JamContext";
 import { coverArtUrl } from "@/api/subsonic";
 import { parseJamCode, type JamQueueItem } from "@/api/jam";
 import { Loading } from "@/components/Loading";
+import { desktop } from "@/lib/desktop";
 import { CheckIcon, CloseIcon, JamIcon } from "@/components/icons";
 
 export function Jam() {
@@ -280,7 +281,13 @@ function QueueRow({
 
 function InviteCard({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
-  const link = `${window.location.origin}/jam/${code}`;
+  // The desktop app's own origin is a local server, so invite people to the
+  // web deployment whose Jam server it uses instead.
+  const [origin, setOrigin] = useState(desktop ? "" : window.location.origin);
+  useEffect(() => {
+    desktop?.getConfig().then((config) => setOrigin(config.jamUrl));
+  }, []);
+  const link = `${origin}/jam/${code}`;
 
   async function copy() {
     try {

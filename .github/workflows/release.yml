@@ -56,6 +56,11 @@ jobs:
       - name: Package
         shell: bash
         run: |
+          # Unconfigured secrets arrive as empty strings, which electron-builder
+          # treats as set (an empty CSC_LINK resolves to the working directory).
+          for var in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            [[ -z "${!var}" ]] && unset "$var"
+          done
           args=(${{ matrix.args }} --publish never)
           if [[ "$RUNNER_OS" == "macOS" && -z "$CSC_LINK" ]]; then
             args+=(-c.mac.identity=- -c.mac.hardenedRuntime=false)

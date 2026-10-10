@@ -1,7 +1,8 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useLocation, useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { SubsonicError } from "@/api/client";
+import { desktop, desktopErrorMessage } from "@/lib/desktop";
 
 export function Login() {
   const { login, isAuthenticated, isLoading } = useAuth();
@@ -10,8 +11,18 @@ export function Login() {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  // Desktop app only: which servers the local proxy forwards to.
+  const [navidromeUrl, setNavidromeUrl] = useState("");
+  const [jamUrl, setJamUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    desktop?.getConfig().then((config) => {
+      setNavidromeUrl(config.navidromeUrl);
+      setJamUrl(config.jamUrl);
+    });
+  }, []);
 
   if (!isLoading && isAuthenticated) {
     const from = (location.state as { from?: Location })?.from;
@@ -22,6 +33,15 @@ export function Login() {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
+    if (desktop) {
+      try {
+        await desktop.setConfig({ navidromeUrl, jamUrl });
+      } catch (err) {
+        setError(desktopErrorMessage(err));
+        setSubmitting(false);
+        return;
+      }
+    }
     try {
       await login(username, password);
       navigate("/", { replace: true });
@@ -55,10 +75,38 @@ export function Login() {
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {desktop && (
+            <>
+              <label className="flex flex-col gap-2 text-sm font-semibold">
+                Navidrome server
+                <input
+                  type="url"
+                  value={navidromeUrl}
+                  onChange={(e) => setNavidromeUrl(e.target.value)}
+                  placeholder="https://navidrome.example.com"
+                  className="rounded-md border border-white/20 bg-transparent px-3 py-3 text-sm outline-none focus:border-white"
+                  required
+                />
+              </label>
+              <label className="flex flex-col gap-2 text-sm font-semibold">
+                Jam server <span className="font-normal text-spotify-gray">(optional)</span>
+                <input
+                  type="url"
+                  value={jamUrl}
+                  onChange={(e) => setJamUrl(e.target.value)}
+                  placeholder="https://spotifiak.example.com"
+                  className="rounded-md border border-white/20 bg-transparent px-3 py-3 text-sm outline-none focus:border-white"
+                />
+                <span className="text-xs font-normal text-spotify-gray">
+                  The address of the Spotifiak web app, to listen together with its users.
+                </span>
+              </label>
+            </>
+          )}
           <label className="flex flex-col gap-2 text-sm font-semibold">
             Username
             <input
-              autoFocus
+              autoFocus={!desktop}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="rounded-md border border-white/20 bg-transparent px-3 py-3 text-sm outline-none focus:border-white"

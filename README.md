@@ -68,6 +68,43 @@ Things worth knowing:
 - **Ingress.** Jam's event stream is a long-lived Server-Sent Events connection. With ingress-nginx, keep the annotations from `ingress.yaml` (buffering off, 1h read timeout); other controllers need the equivalent settings, or Jam updates arrive late or the stream drops every minute.
 - **Navidrome in the same cluster?** Point `NAVIDROME_URL` at its Service, e.g. `http://navidrome.media.svc.cluster.local:4533`.
 
+## Desktop app (macOS / Windows / Linux)
+
+The same app is also packaged as a desktop app with [Electron](https://www.electronjs.org/). Download the installer for your OS from the [GitHub Releases](../../releases) page:
+
+| OS | File | Notes |
+| --- | --- | --- |
+| macOS | `Spotifiak-<version>-mac-arm64.dmg` (Apple Silicon) or `-mac-x64.dmg` (Intel) | Not notarized: the first time, right-click the app → **Open**, or allow it under **System Settings → Privacy & Security**. |
+| Windows | `Spotifiak-<version>-win-x64.exe` | Not signed: SmartScreen may warn - **More info → Run anyway**. |
+| Linux | `Spotifiak-<version>-linux-x86_64.AppImage` | `chmod +x` it, then run it. |
+
+On the login screen, the desktop app also asks for:
+
+- **Navidrome server** - the URL of your Navidrome instance (it must be reachable from your computer).
+- **Jam server** (optional) - the URL of a Spotifiak web deployment (Docker/Kubernetes, see below). The desktop app uses that deployment's Jam server, so desktop and web users can join the same Jams. Leave it empty if you don't need Jam.
+
+To change them later, log out. They're saved in `config.json` in the app's data directory (`~/Library/Application Support/Spotifiak`, `%APPDATA%\Spotifiak` or `~/.config/Spotifiak`).
+
+How it works: `electron/main.mjs` starts a small HTTP server on `127.0.0.1` that does what nginx does in the Docker image - serves the built app from `dist/` and proxies `/rest` to Navidrome and `/jam-api` to the Jam server - so the React code runs unchanged.
+
+```bash
+npm run desktop        # build the web app and open it in Electron
+npm run desktop:dist   # build installers for the current OS into release/
+```
+
+### Releasing
+
+Push a version tag:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+`.github/workflows/release.yml` then builds the macOS, Windows and Linux installers (the app version is taken from the tag) and publishes them as a GitHub Release with auto-generated release notes. Tags with a suffix (e.g. `v1.1.0-beta.1`) are marked as pre-releases. The Docker workflow also runs on the tag and pushes the matching image.
+
+Builds are unsigned by default. To sign them, add these repository secrets and electron-builder will pick them up: `CSC_LINK` (base64 `.p12` certificate) and `CSC_KEY_PASSWORD`, plus `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` and `APPLE_TEAM_ID` to notarize the macOS app.
+
 ## CI/CD
 
 `.github/workflows/docker-build.yml` runs on every push:

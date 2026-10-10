@@ -1,0 +1,39 @@
+# Desktop packaging (npm run desktop:dist). Releases are built by
+# .github/workflows/release.yml when a vX.Y.Z tag is pushed.
+appId: fr.sachaguerin.spotifiak
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+
+directories:
+  output: release
+  buildResources: build
+
+# The React bundle in dist/ already contains every runtime dependency, so
+# none of node_modules needs shipping.
+files:
+  - dist/**/*
+  - electron/**/*
+  - package.json
+  - "!node_modules/**/*"
+
+mac:
+  category: public.app-category.music
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+
+linux:
+  category: Audio
+  target:
+    - target: AppImage
+      arch: [x64]
+
+publish: null

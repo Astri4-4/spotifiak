@@ -3,10 +3,15 @@ name: Release
 # Pushing a version tag (e.g. `git tag v1.2.0 && git push origin v1.2.0`)
 # builds the desktop app on each OS and publishes a GitHub Release with the
 # installers attached. The app version comes from the tag, not package.json.
+#
+# It can also be run by hand on any branch (Actions -> Release -> Run
+# workflow) to check the builds; that uploads the files as workflow artifacts
+# but publishes nothing.
 
 on:
   push:
     tags: ["v*.*.*"]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -42,6 +47,7 @@ jobs:
       - run: npm ci
 
       - name: Set version from tag
+        if: github.ref_type == 'tag'
         shell: bash
         run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
 
@@ -83,6 +89,7 @@ jobs:
   release:
     name: Publish GitHub Release
     needs: build
+    if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

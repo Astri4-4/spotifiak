@@ -1,12 +1,18 @@
 name: Release
 
 # Pushing a version tag (e.g. `git tag v1.2.0 && git push origin v1.2.0`)
-# builds the desktop app on each OS and publishes a GitHub Release with the
-# installers attached. The app version comes from the tag, not package.json.
+# builds the desktop app on each OS plus the Android and iOS apps, and
+# publishes a GitHub Release with them attached. The app version comes from
+# the tag, not package.json.
+#
+# It can also be run by hand on any branch (Actions -> Release -> Run
+# workflow) to check the builds; that uploads the files as workflow artifacts
+# but publishes nothing.
 
 on:
   push:
     tags: ["v*.*.*"]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -42,6 +48,7 @@ jobs:
       - run: npm ci
 
       - name: Set version from tag
+        if: github.ref_type == 'tag'
         shell: bash
         run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
 
@@ -80,9 +87,117 @@ jobs:
           path: ${{ matrix.files }}
           if-no-files-found: error
 
+  android:
+    name: Build (Android)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+
+      - name: Set version from tag
+        if: github.ref_type == 'tag'
+        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
+
+      - run: npm run build
+      - run: npx cap sync android
+
+      # Signed with the release key from the ANDROID_* secrets if they're set
+      # (so each version installs as an update of the previous one), else
+      # with a throwaway debug key (see android/app/build.gradle).
+      - name: Build APK
+        working-directory: android
+        run: |
+          if [[ -n "$ANDROID_KEYSTORE_BASE64" ]]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+            export ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/release.keystore"
+          else
+            echo "::warning::No ANDROID_KEYSTORE_BASE64 secret: the APK is signed with a throwaway debug key."
+          fi
+          ./gradlew assembleRelease
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+      - name: Collect APK
+        run: |
+          mkdir -p release
+          cp android/app/build/outputs/apk/release/app-release.apk "release/Spotifiak-$(node -p 'require("./package.json").version')-android.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mobile-android
+          path: release/*.apk
+          if-no-files-found: error
+
+  ios:
+    name: Build (iOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+
+      - name: Set version from tag
+        if: github.ref_type == 'tag'
+        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
+
+      - run: npm run build
+      - run: npx cap sync ios
+
+      # Unsigned: sideloading tools (SideStore, AltStore, Sideloadly) sign the
+      # .ipa with the user's own Apple ID when installing it.
+      - name: Build unsigned IPA
+        run: |
+          version=$(node -p 'require("./package.json").version')
+          IFS=. read -r major minor patch <<< "${version%%-*}"
+          xcodebuild build \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/ios-build" \
+            MARKETING_VERSION="${version%%-*}" \
+            CURRENT_PROJECT_VERSION=$((major * 10000 + minor * 100 + patch)) \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+          mkdir -p release "$RUNNER_TEMP/ipa/Payload"
+          cp -R "$RUNNER_TEMP/ios-build/Build/Products/Release-iphoneos/App.app" "$RUNNER_TEMP/ipa/Payload/"
+          (cd "$RUNNER_TEMP/ipa" && zip -qr "$GITHUB_WORKSPACE/release/Spotifiak-$version-ios.ipa" Payload)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mobile-ios
+          path: release/*.ipa
+          if-no-files-found: error
+
   release:
     name: Publish GitHub Release
-    needs: build
+    needs: [build, android, ios]
+    if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

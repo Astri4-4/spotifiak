@@ -392,6 +392,7 @@ function broadcastHome(home) {
 
 const REPEAT_MODES = ["off", "all", "one"];
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
+const queueOffset = (n) => clamp(Math.trunc(Number(n) || 0), -MAX_DEVICE_QUEUE, MAX_DEVICE_QUEUE);
 
 /** @returns {PlaybackState} */
 function sanitizeState(raw) {
@@ -433,6 +434,11 @@ const COMMANDS = {
     return { type: "playQueue", tracks, startIndex: clamp(Math.trunc(Number(c.startIndex) || 0), 0, Math.max(0, tracks.length - 1)) };
   },
   enqueue: (c) => ({ type: "enqueue", tracks: sanitizeTracks(c.tracks) }),
+  addNext: (c) => ({ type: "addNext", tracks: sanitizeTracks(c.tracks) }),
+  // Queue positions, relative to the current track.
+  jump: (c) => ({ type: "jump", offset: queueOffset(c.offset) }),
+  remove: (c) => ({ type: "remove", offset: queueOffset(c.offset) }),
+  move: (c) => ({ type: "move", from: queueOffset(c.from), to: queueOffset(c.to) }),
   // Move playback to the target: it resumes the active device's queue where it is.
   transfer: (_c, home) =>
     home.active && { type: "transfer", state: { ...home.active.state, position: activePosition(home.active) } },

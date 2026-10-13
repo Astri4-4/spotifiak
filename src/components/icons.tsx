@@ -237,3 +237,25 @@ export function FriendsIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+export function QueueIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <rect x={3} y={4} width={18} height={6} rx={1.5} />
+      <path d="M3 14h18M3 19h18" />
+    </svg>
+  );
+}
+
+export function DragHandleIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" {...props}>
+      <circle cx={9} cy={6} r={1.6} />
+      <circle cx={15} cy={6} r={1.6} />
+      <circle cx={9} cy={12} r={1.6} />
+      <circle cx={15} cy={12} r={1.6} />
+      <circle cx={9} cy={18} r={1.6} />
+      <circle cx={15} cy={18} r={1.6} />
+    </svg>
+  );
+}

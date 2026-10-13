@@ -116,6 +116,18 @@ export function ConnectProvider({ children }: { children: ReactNode }) {
       case "enqueue":
         p.enqueue(command.tracks as Child[]);
         break;
+      case "addNext":
+        p.addNext(command.tracks as Child[]);
+        break;
+      case "jump":
+        p.jumpTo(p.currentIndex + command.offset);
+        break;
+      case "remove":
+        p.removeAt(p.currentIndex + command.offset);
+        break;
+      case "move":
+        p.moveTrack(p.currentIndex + command.from, p.currentIndex + command.to);
+        break;
       case "transfer": {
         const { state } = command;
         if (state.index < 0) break;
@@ -264,6 +276,10 @@ export function ConnectProvider({ children }: { children: ReactNode }) {
       resumeAudio: () => {},
       playQueue: (tracks, startIndex = 0) => send({ type: "playQueue", tracks: tracks.map(toJamTrack), startIndex }),
       enqueue: (tracks) => send({ type: "enqueue", tracks: tracks.map(toJamTrack) }),
+      addNext: (tracks) => send({ type: "addNext", tracks: tracks.map(toJamTrack) }),
+      jumpTo: (index) => send({ type: "jump", offset: index - state.index }),
+      removeAt: (index) => send({ type: "remove", offset: index - state.index }),
+      moveTrack: (from, to) => send({ type: "move", from: from - state.index, to: to - state.index }),
       togglePlay: () => send({ type: state.playing ? "pause" : "play" }),
       playNext: () => send({ type: "next" }),
       playPrevious: () => send({ type: "previous" }),

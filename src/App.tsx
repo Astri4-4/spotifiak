@@ -16,6 +16,7 @@ import { Jam } from "@/pages/Jam";
 import { JoinJam } from "@/pages/JoinJam";
 import { Settings } from "@/pages/Settings";
 import { Activity } from "@/pages/Activity";
+import { Queue } from "@/pages/Queue";
 
 export default function App() {
   return (
@@ -34,6 +35,7 @@ export default function App() {
                   <Route path="/album/:id" element={<AlbumDetail />} />
                   <Route path="/artist/:id" element={<ArtistDetail />} />
                   <Route path="/playlist/:id" element={<PlaylistDetail />} />
+                  <Route path="/queue" element={<Queue />} />
                   <Route path="/jam" element={<Jam />} />
                   <Route path="/jam/:code" element={<JoinJam />} />
                   <Route path="/settings" element={<Settings />} />

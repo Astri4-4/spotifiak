@@ -48,7 +48,13 @@ export type ConnectCommand =
   | { type: "setShuffle"; value: boolean }
   | { type: "setRepeat"; value: RemoteRepeat }
   | { type: "playQueue"; tracks: JamTrack[]; startIndex: number }
-  | { type: "enqueue"; tracks: JamTrack[] };
+  | { type: "enqueue"; tracks: JamTrack[] }
+  | { type: "addNext"; tracks: JamTrack[] }
+  // Queue positions are relative to the current track (the published queue
+  // is only a window of the device's queue).
+  | { type: "jump"; offset: number }
+  | { type: "remove"; offset: number }
+  | { type: "move"; from: number; to: number };
 
 /** A command as received, with the state to resume for "transfer". */
 export type ReceivedCommand =

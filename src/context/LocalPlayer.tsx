@@ -8,7 +8,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { MediaSession, type ActionHandler, type MediaSessionAction } from "@capgo/capacitor-media-session";
+import type { ActionHandler, MediaSessionAction } from "@capgo/capacitor-media-session";
+import { MediaSession } from "@/lib/mediaSession";
 import { coverArtUrl, scrobble, streamUrl } from "@/api/subsonic";
 import { toJamTrack } from "@/api/jam";
 import { getShareListening } from "@/lib/sharing";
@@ -292,9 +293,9 @@ export function LocalPlayerProvider({ children }: { children: ReactNode }) {
   );
 
   // Lock screen, notification and media keys (via the Media Session API, or
-  // natively on Android). On Android this also keeps a foreground service
-  // running while music plays, so playback - including moving on to the
-  // next track - carries on with the app in the background.
+  // natively on Android: see lib/mediaSession.ts). On Android this also keeps
+  // a foreground service running while music plays, so playback - including
+  // moving on to the next track - carries on with the app in the background.
   const mediaControlsRef = useRef({ isPlaying, togglePlay, playNext, playPrevious, seek });
   mediaControlsRef.current = { isPlaying, togglePlay, playNext, playPrevious, seek };
 

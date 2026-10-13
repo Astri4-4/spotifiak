@@ -9,6 +9,7 @@
 // bundle that did start is served instead (or the bundled one).
 
 import { app } from "electron";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { compareVersions, fetchLatestBundle } from "../shared/releases.mjs";
@@ -147,12 +148,17 @@ async function check() {
       setStatus({ phase: "downloading", version: latest.version });
       const res = await fetch(latest.url);
       if (!res.ok) throw new Error(`Download failed (HTTP ${res.status}).`);
+      const zip = Buffer.from(await res.arrayBuffer());
+      // Older releases have no checksum; newer ones must match it.
+      if (latest.checksum && crypto.createHash("sha256").update(zip).digest("hex") !== latest.checksum) {
+        throw new Error("The download is corrupted (checksum mismatch).");
+      }
       // Extract next to the final location, then swap it in, so a failed
       // download never leaves a half-written bundle behind.
       const temp = `${bundleDir(latest.version)}.partial`;
       fs.rmSync(temp, { recursive: true, force: true });
       fs.mkdirSync(temp, { recursive: true });
-      extractZip(Buffer.from(await res.arrayBuffer()), temp);
+      extractZip(zip, temp);
       if (!fs.existsSync(path.join(temp, "index.html"))) throw new Error("The update has no index.html.");
       fs.rmSync(bundleDir(latest.version), { recursive: true, force: true });
       fs.renameSync(temp, bundleDir(latest.version));

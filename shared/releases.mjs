@@ -24,7 +24,7 @@ export function compareVersions(a, b) {
  * The latest release's web bundle, or null if there's no release with one.
  * @param {string} repo GitHub "owner/name"
  * @param {string} [apiBase] GitHub API URL; another one only for testing
- * @returns {Promise<{ version: string, url: string, minShellVersion: string } | null>}
+ * @returns {Promise<{ version: string, url: string, minShellVersion: string, checksum: string | null } | null>}
  */
 export async function fetchLatestBundle(repo, apiBase = "https://api.github.com") {
   const res = await fetch(`${apiBase}/repos/${repo}/releases/latest`, {
@@ -38,5 +38,11 @@ export async function fetchLatestBundle(repo, apiBase = "https://api.github.com"
   const manifest = release.assets?.find((a) => a.name === "update.json");
   if (!zip || !manifest) return null;
   const info = await (await fetch(manifest.browser_download_url)).json();
-  return { version, url: zip.browser_download_url, minShellVersion: info.minShellVersion ?? "0.0.0" };
+  return {
+    version,
+    url: zip.browser_download_url,
+    minShellVersion: info.minShellVersion ?? "0.0.0",
+    // SHA-256 of the zip, as lowercase hex; older releases have none.
+    checksum: typeof info.checksum === "string" && /^[0-9a-f]{64}$/.test(info.checksum) ? info.checksum : null,
+  };
 }

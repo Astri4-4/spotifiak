@@ -101,8 +101,13 @@ async function checkNative() {
     }
     let bundle = bundles.find((b) => b.version === latest.version && b.status === "success");
     if (!bundle) {
+      // The plugin refuses downloads it can't verify.
+      if (!latest.checksum) {
+        setStatus({ phase: "up-to-date" });
+        return;
+      }
       setStatus({ phase: "downloading", version: latest.version });
-      bundle = await CapacitorUpdater.download({ url: latest.url, version: latest.version });
+      bundle = await CapacitorUpdater.download({ url: latest.url, version: latest.version, checksum: latest.checksum });
     }
     // Used the next time the app goes to the background or restarts.
     nextBundle = await CapacitorUpdater.next({ id: bundle.id });

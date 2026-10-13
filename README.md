@@ -43,7 +43,7 @@ It needs:
 
 - The music folder mounted read-write in the Spotifiak container, at `MUSIC_DIR` (see `docker-compose.yml`, or `deploy/k8s/music-volume.yaml` for an SMB share on Kubernetes). Without it, the button doesn't show.
 - `DEEMIX_FOLDER`: deemix's download folder within the music folder, if it's a subfolder (e.g. `Deezer`), so its singles are recognised.
-- Navidrome reporting real file paths, so its songs can be matched to files: `ND_SUBSONIC_DEFAULTREPORTREALPATH=true` on Navidrome. If Navidrome reports the path as absolute and its music folder isn't `/music`, set `NAVIDROME_MUSIC_DIR` to it.
+- Navidrome reporting real file paths, so its songs can be matched to files: `ND_SUBSONIC_DEFAULTREPORTREALPATH=true` on Navidrome. It only applies to players Navidrome creates afterwards, which is why the server asks under its own client name, `spotifion-files`; if that player already existed, turn on its "Report real path" in Navidrome's Players settings. If Navidrome reports the path as absolute and its music folder isn't `/music`, set `NAVIDROME_MUSIC_DIR` to it.
 
 ## Jam
 

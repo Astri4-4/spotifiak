@@ -6,7 +6,7 @@ import type { Child } from "@/types/subsonic";
 // (proxied by nginx, Vite or the desktop app), or on the configured Jam
 // server in the mobile app.
 
-const NO_JAM_SERVER = "Jam needs a Jam server. Log out and set one on the login screen.";
+const NO_JAM_SERVER = "Jam needs a Jam server. Set one in Settings.";
 
 function sessionsUrl(): string {
   const base = jamBase();
@@ -103,6 +103,17 @@ export async function getJam(id: string): Promise<JamSnapshot | null> {
   } catch (err) {
     if (err instanceof JamError && err.status === 404) return null;
     throw err;
+  }
+}
+
+/** Whether the configured Jam server answers its health check. */
+export async function jamServerReachable(): Promise<boolean> {
+  const base = jamBase();
+  if (base === null) return false;
+  try {
+    return (await fetch(`${base}/jam-api/healthz`)).ok;
+  } catch {
+    return false;
   }
 }
 

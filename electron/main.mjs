@@ -4,8 +4,8 @@
 // (Navidrome's Subsonic API) and /jam-api (the Jam server) - which nginx
 // provides in the Docker image. Here a tiny local HTTP server on 127.0.0.1
 // plays nginx's role, so the React code runs unchanged. Its upstreams come
-// from config.json in the user-data directory, edited from the login screen
-// through the bridge in preload.cjs.
+// from config.json in the user-data directory, edited from the login and
+// settings screens through the bridge in preload.cjs.
 
 import { app, BrowserWindow, ipcMain, shell } from "electron";
 import fs from "node:fs";
@@ -135,7 +135,7 @@ function handle(req, res) {
   if (req.url.startsWith("/jam-api/")) {
     if (!config.jamUrl) {
       return sendJson(res, 503, {
-        error: "Jam needs a Jam server. Log out and set one on the login screen.",
+        error: "Jam needs a Jam server. Set one in Settings.",
       });
     }
     return proxy(req, res, config.jamUrl);

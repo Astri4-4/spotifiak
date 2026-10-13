@@ -89,7 +89,7 @@ On the login screen, the desktop app also asks for:
 - **Navidrome server** - the URL of your Navidrome instance (it must be reachable from your computer).
 - **Jam server** (optional) - the URL of a Spotifiak web deployment (Docker/Kubernetes, see below). The desktop app uses that deployment's Jam server, so desktop and web users can join the same Jams. Leave it empty if you don't need Jam.
 
-To change them later, log out. They're saved in `config.json` in the app's data directory (`~/Library/Application Support/Spotifiak`, `%APPDATA%\Spotifiak` or `~/.config/Spotifiak`).
+To change them later, open **Settings** (the profile icon, top right) → **Servers**. They're saved in `config.json` in the app's data directory (`~/Library/Application Support/Spotifiak`, `%APPDATA%\Spotifiak` or `~/.config/Spotifiak`).
 
 How it works: `electron/main.mjs` starts a small HTTP server on `127.0.0.1` that does what nginx does in the Docker image - serves the built app from `dist/` and proxies `/rest` to Navidrome and `/jam-api` to the Jam server - so the React code runs unchanged.
 
@@ -118,7 +118,7 @@ The app is also wrapped for phones with [Capacitor](https://capacitorjs.com/) (`
 - **Android** - `Spotifiak-<version>-android.apk`. Open it on your phone and allow installing from that source.
 - **iOS** - `Spotifiak-<version>-ios.ipa`, unsigned. Install it with [SideStore](https://sidestore.io/), [AltStore](https://altstore.io/) or [Sideloadly](https://sideloadly.io/) using your Apple ID. With a free Apple ID the app has to be re-signed every 7 days; SideStore/AltStore can do that automatically in the background.
 
-As in the desktop app, the login screen asks for the **Navidrome server** and an optional **Jam server** (the URL of a Spotifiak web deployment). Both must be reachable from the phone, as there's no proxy in between: API calls go through the phone's native HTTP stack (so Navidrome needs no CORS setup), and the Jam server answers cross-origin requests itself, so the web deployment has to run a version of the Docker image that includes that.
+As in the desktop app, the login screen asks for the **Navidrome server** and an optional **Jam server** (the URL of a Spotifiak web deployment), which you can change later in **Settings → Servers**. Both must be reachable from the phone, as there's no proxy in between: API calls go through the phone's native HTTP stack (so Navidrome needs no CORS setup), and the Jam server answers cross-origin requests itself, so the web deployment has to run a version of the Docker image that includes that.
 
 Music keeps playing with the screen locked or the app in the background, with controls on the lock screen and in the notification shade (`@capgo/capacitor-media-session`; on Android it runs a media-playback foreground service while music plays). The same Media Session integration gives the web and desktop apps media-key support.
 

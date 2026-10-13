@@ -194,9 +194,51 @@ jobs:
           path: release/*.ipa
           if-no-files-found: error
 
+  # The web app on its own, for live updates (src/lib/updates.ts): the
+  # desktop and mobile apps download it from the latest release.
+  web-bundle:
+    name: Build (live-update bundle)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+
+      - name: Set version from tag
+        if: github.ref_type == 'tag'
+        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
+
+      - run: npm run build
+
+      # update.json says which app shells can run this bundle: bump
+      # `updates.minShellVersion` in package.json when a release changes
+      # native or Electron code, so older installs don't load it.
+      - name: Package bundle
+        run: |
+          version=$(node -p 'require("./package.json").version')
+          mkdir -p release
+          (cd dist && zip -qr "../release/spotifiak-web-$version.zip" .)
+          node -e 'const p = require("./package.json"); console.log(JSON.stringify({ version: p.version, minShellVersion: p.updates.minShellVersion }))' > release/update.json
+          cat release/update.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-bundle
+          path: |
+            release/*.zip
+            release/update.json
+          if-no-files-found: error
+
   release:
     name: Publish GitHub Release
-    needs: [build, android, ios]
+    needs: [build, android, ios, web-bundle]
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     steps:

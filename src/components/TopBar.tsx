@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { SearchIcon } from "./icons";
+import { FriendsIcon, SearchIcon } from "./icons";
+import { setFriendsPanelOpen, useFriendsPanelOpen } from "@/lib/friendsPanel";
 
 export function TopBar() {
   const { username } = useAuth();
+  const friendsPanelOpen = useFriendsPanelOpen();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
 
@@ -30,6 +32,21 @@ export function TopBar() {
         </div>
       </form>
 
+      {/* Narrow screens: the Friend activity page. Wide ones: re-open its panel if hidden. */}
+      <Link
+        to="/activity"
+        aria-label="Friend activity"
+        title="Friend activity"
+        className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-spotify-gray hover:text-white ${friendsPanelOpen ? "xl:hidden" : ""}`}
+        onClick={(e) => {
+          if (window.matchMedia("(min-width: 1280px)").matches) {
+            e.preventDefault();
+            setFriendsPanelOpen(true);
+          }
+        }}
+      >
+        <FriendsIcon className="h-5 w-5" />
+      </Link>
       <Link
         to="/settings"
         aria-label="Settings"

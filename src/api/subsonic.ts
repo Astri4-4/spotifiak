@@ -6,6 +6,7 @@ import type {
   ArtistWithAlbumsID3,
   Child,
   IndexID3,
+  NowPlayingEntry,
   Playlist,
   PlaylistWithSongs,
   SearchResult3,
@@ -131,6 +132,14 @@ export async function getStarred2(): Promise<SearchResult3> {
     "subsonic-response": { starred2: SearchResult3 };
   }>("getStarred2");
   return res["subsonic-response"].starred2;
+}
+
+/** What every user of the server is playing right now (from their "now playing" scrobbles). */
+export async function getNowPlaying(): Promise<NowPlayingEntry[]> {
+  const res = await request<{
+    "subsonic-response": { nowPlaying: { entry?: NowPlayingEntry[] } };
+  }>("getNowPlaying");
+  return res["subsonic-response"].nowPlaying?.entry ?? [];
 }
 
 export async function scrobble(id: string, submission = true): Promise<void> {

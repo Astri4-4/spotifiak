@@ -6,10 +6,14 @@ import { NowPlayingBar } from "./NowPlayingBar";
 import { BottomNav } from "./BottomNav";
 import { JamBanner } from "./JamBanner";
 import { NowPlayingSheet } from "./NowPlayingSheet";
+import { FriendActivity } from "./FriendActivity";
+import { CloseIcon } from "./icons";
+import { setFriendsPanelOpen, useFriendsPanelOpen } from "@/lib/friendsPanel";
 
 export function Layout() {
   const mainRef = useRef<HTMLElement>(null);
   const { pathname } = useLocation();
+  const friendsPanelOpen = useFriendsPanelOpen();
 
   // The page scrolls inside <main>, not the window, so reset it on navigation.
   useEffect(() => {
@@ -31,6 +35,23 @@ export function Layout() {
             <Outlet />
           </div>
         </main>
+        {/* Friend activity, like Spotify's right-hand panel; a page on narrower screens. */}
+        {friendsPanelOpen && pathname !== "/activity" && (
+          <aside className="hidden w-80 flex-shrink-0 flex-col overflow-y-auto rounded-lg bg-spotify-base-black p-3 xl:flex">
+            <div className="mb-2 flex items-center justify-between px-2 pt-1">
+              <h2 className="font-bold">Friend activity</h2>
+              <button
+                type="button"
+                onClick={() => setFriendsPanelOpen(false)}
+                aria-label="Hide Friend activity"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-spotify-gray hover:bg-white/10 hover:text-white"
+              >
+                <CloseIcon className="h-4 w-4" />
+              </button>
+            </div>
+            <FriendActivity />
+          </aside>
+        )}
       </div>
       <JamBanner />
       <NowPlayingBar />

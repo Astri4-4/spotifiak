@@ -20,6 +20,12 @@ Like Spotify Connect: every open app signed in to the same Navidrome account (de
 - A device in a Jam follows the Jam instead.
 - Phones only show up while the app is open or playing (iOS and Android suspend it otherwise).
 
+## Friend activity
+
+See what the other people on your Navidrome server are listening to, like Spotify's Friend Activity: a panel on the right of wide windows, or the friends button in the top bar on smaller screens and phones. Each entry shows the song (play it yourself with its cover), and a green dot while they're probably still listening.
+
+It uses Navidrome's own "now playing" list (Subsonic `getNowPlaying`), so it needs no extra server and also shows people using other Navidrome apps. To stop appearing in it, turn off **Settings → Privacy → Share what I'm listening to**: the app then stops sending "now playing" (your plays are still saved to your history). Other apps you use have their own behaviour.
+
 ## Jam
 
 Open **Jam** in the sidebar (or the tab bar on mobile) and start one, then share the invite link or 6-character code. Guests log in with their own account on the same Navidrome server.

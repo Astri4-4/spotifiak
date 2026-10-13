@@ -4,6 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useJam } from "@/context/JamContext";
 import { useConnect } from "@/context/PlayerContext";
 import { defaultDeviceName } from "@/lib/device";
+import { setShareListening, useShareListening } from "@/lib/sharing";
 import { SubsonicError } from "@/api/client";
 import { ping } from "@/api/subsonic";
 import { checkJamServer } from "@/api/jam";
@@ -56,6 +57,10 @@ export function Settings() {
             This app's Navidrome and Jam servers are set by whoever deployed it (<code>NAVIDROME_URL</code>).
           </p>
         )}
+      </Section>
+
+      <Section title="Privacy">
+        <ShareListeningToggle />
       </Section>
 
       <Section title="Appearance">
@@ -131,6 +136,32 @@ export function Settings() {
         <p className="pb-4 text-center text-xs text-spotify-gray">Spotifiak {__APP_VERSION__}</p>
       )}
     </div>
+  );
+}
+
+function ShareListeningToggle() {
+  const sharing = useShareListening();
+  return (
+    <label className="flex cursor-pointer items-center justify-between gap-4">
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold">Share what I'm listening to</span>
+        <span className="block text-xs text-spotify-gray">
+          Other people on this Navidrome server see the song you're playing in Friend activity. Your plays are still
+          saved to your own history either way.
+        </span>
+      </span>
+      <input
+        type="checkbox"
+        role="switch"
+        checked={sharing}
+        onChange={(e) => setShareListening(e.target.checked)}
+        className="peer sr-only"
+      />
+      <span
+        aria-hidden
+        className="relative h-6 w-11 flex-shrink-0 rounded-full bg-white/30 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-pure-white after:shadow after:transition peer-checked:bg-spotify-green peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-white"
+      />
+    </label>
   );
 }
 

@@ -11,6 +11,7 @@ import {
 import { MediaSession, type ActionHandler, type MediaSessionAction } from "@capgo/capacitor-media-session";
 import { coverArtUrl, scrobble, streamUrl } from "@/api/subsonic";
 import { toJamTrack } from "@/api/jam";
+import { getShareListening } from "@/lib/sharing";
 import type { Child } from "@/types/subsonic";
 import { useJam } from "./JamContext";
 
@@ -161,7 +162,8 @@ export function LocalPlayerProvider({ children }: { children: ReactNode }) {
       if (start?.paused) setLocalPlaying(false);
       else tryPlay();
     }
-    scrobble(current.id, false).catch(() => void 0); // best-effort "now playing"
+    // Best-effort "now playing", which other users see in Friend activity.
+    if (getShareListening()) scrobble(current.id, false).catch(() => void 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sourceKey]);
 

@@ -90,3 +90,12 @@ export interface SubsonicError {
   code: number;
   message: string;
 }
+
+/** A song someone is playing right now (getNowPlaying). */
+export interface NowPlayingEntry extends Child {
+  username: string;
+  /** Minutes since the song started. */
+  minutesAgo: number;
+  playerId?: number;
+  playerName?: string;
+}

@@ -227,3 +227,13 @@ export function BrowserIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+export function FriendsIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <circle cx="9" cy="8" r="3.5" />
+      <path d="M2.5 20a6.5 6.5 0 0 1 13 0" />
+      <path d="M18 6.5a5 5 0 0 1 0 7M20.5 4a8.5 8.5 0 0 1 0 12" />
+    </svg>
+  );
+}

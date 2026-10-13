@@ -53,6 +53,14 @@ export interface PlayerContextValue {
   resumeAudio: () => void;
   playQueue: (tracks: Child[], startIndex?: number, options?: PlayQueueOptions) => void;
   enqueue: (tracks: Child[]) => void;
+  /** Inserts tracks right after the current one (in a Jam, which has no such place: adds them). */
+  addNext: (tracks: Child[]) => void;
+  /** Plays queue[index]. */
+  jumpTo: (index: number) => void;
+  /** Removes queue[index]; not the current track. */
+  removeAt: (index: number) => void;
+  /** Moves queue[from] to index `to`. Not in a Jam, which has no order to change. */
+  moveTrack: (from: number, to: number) => void;
   togglePlay: () => void;
   playNext: () => void;
   playPrevious: () => void;
@@ -99,6 +107,8 @@ export function LocalPlayerProvider({ children }: { children: ReactNode }) {
   const localQueueRef = useRef(localQueue);
   localQueueRef.current = localQueue;
   const [localIndex, setLocalIndex] = useState(-1);
+  const localIndexRef = useRef(localIndex);
+  localIndexRef.current = localIndex;
   const [localPlaying, setLocalPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -261,6 +271,84 @@ export function LocalPlayerProvider({ children }: { children: ReactNode }) {
     [inJam, act],
   );
 
+  // Queue edits read and update the refs right away, so quick successive
+  // edits (e.g. two drags) each see the previous one before React re-renders.
+  const setQueueAndIndex = useCallback((q: Child[], index: number) => {
+    localQueueRef.current = q;
+    localIndexRef.current = index;
+    setLocalQueue(q);
+    setLocalIndex(index);
+  }, []);
+
+  const addNext = useCallback(
+    (tracks: Child[]) => {
+      if (inJam) {
+        if (tracks.length) void act({ type: "add", tracks: tracks.map(toJamTrack) });
+        return;
+      }
+      const q = localQueueRef.current;
+      const at = localIndexRef.current + 1;
+      setQueueAndIndex([...q.slice(0, at), ...tracks, ...q.slice(at)], localIndexRef.current);
+    },
+    [inJam, act, setQueueAndIndex],
+  );
+
+  const jumpTo = useCallback(
+    (index: number) => {
+      if (inJam) {
+        const item = jam?.queue[index];
+        if (item && canControl) void act({ type: "jump", uid: item.uid });
+        return;
+      }
+      const q = localQueueRef.current;
+      if (index < 0 || index >= q.length) return;
+      const audio = audioRef.current;
+      if (audio && q[index].id === q[localIndexRef.current]?.id) {
+        // Same song: the load effect won't run, so restart it here.
+        audio.currentTime = 0;
+        tryPlay();
+      }
+      setQueueAndIndex(q, index);
+    },
+    [inJam, jam?.queue, canControl, act, tryPlay, setQueueAndIndex],
+  );
+
+  const removeAt = useCallback(
+    (index: number) => {
+      if (inJam) {
+        const item = jam?.queue[index];
+        if (item) void act({ type: "remove", uid: item.uid });
+        return;
+      }
+      const q = localQueueRef.current;
+      const cur = localIndexRef.current;
+      if (index < 0 || index >= q.length || index === cur) return;
+      setQueueAndIndex(
+        q.filter((_, i) => i !== index),
+        index < cur ? cur - 1 : cur,
+      );
+    },
+    [inJam, jam?.queue, act, setQueueAndIndex],
+  );
+
+  const moveTrack = useCallback(
+    (from: number, to: number) => {
+      const q = localQueueRef.current;
+      if (inJam || from === to || from < 0 || to < 0 || from >= q.length || to >= q.length) return;
+      const next = [...q];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      // Keep the current track current, wherever it ends up.
+      const cur = localIndexRef.current;
+      let index = cur;
+      if (from === cur) index = to;
+      else if (from < cur && to >= cur) index = cur - 1;
+      else if (from > cur && to <= cur) index = cur + 1;
+      setQueueAndIndex(next, index);
+    },
+    [inJam, setQueueAndIndex],
+  );
+
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
     if (!audio || !current) return;
@@ -372,6 +460,10 @@ export function LocalPlayerProvider({ children }: { children: ReactNode }) {
       resumeAudio,
       playQueue,
       enqueue,
+      addNext,
+      jumpTo,
+      removeAt,
+      moveTrack,
       togglePlay,
       playNext,
       playPrevious,
@@ -397,6 +489,10 @@ export function LocalPlayerProvider({ children }: { children: ReactNode }) {
       resumeAudio,
       playQueue,
       enqueue,
+      addNext,
+      jumpTo,
+      removeAt,
+      moveTrack,
       togglePlay,
       playNext,
       playPrevious,

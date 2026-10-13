@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useConnect, usePlayer } from "@/context/PlayerContext";
 import { DevicePicker } from "./DevicePicker";
 import { useJam } from "@/context/JamContext";
@@ -11,6 +11,7 @@ import {
   JamIcon,
   PauseIcon,
   PlayIcon,
+  QueueIcon,
   RepeatIcon,
   ShuffleIcon,
   SkipNextIcon,
@@ -45,6 +46,8 @@ export function NowPlayingBar() {
   const { isStarred, toggle: toggleStar } = useTrackStar(current);
   const { open: openSheet } = useNowPlayingSheet();
   const { remoteDevice } = useConnect();
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
 
   if (!current) {
     return (
@@ -228,6 +231,22 @@ export function NowPlayingBar() {
         </div>
 
         <div className="flex min-w-0 items-center justify-end gap-2 pr-1">
+          <Link
+            // In a Jam, its page is the queue.
+            to={inJam ? "/jam" : "/queue"}
+            aria-label="Queue"
+            title="Queue"
+            onClick={(e) => {
+              // A second click closes it, like Spotify's.
+              if (pathname === "/queue") {
+                e.preventDefault();
+                navigate(-1);
+              }
+            }}
+            className={`flex-shrink-0 ${pathname === "/queue" ? "text-spotify-green" : "text-spotify-gray hover:text-white"}`}
+          >
+            <QueueIcon className="h-4 w-4" />
+          </Link>
           <Link
             to="/jam"
             title={inJam ? "Open Jam" : "Start a Jam"}

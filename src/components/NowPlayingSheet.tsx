@@ -13,6 +13,7 @@ import {
   JamIcon,
   PauseIcon,
   PlayIcon,
+  QueueIcon,
   RepeatIcon,
   ShuffleIcon,
   SkipNextIcon,
@@ -222,7 +223,14 @@ export function NowPlayingSheet() {
 
         <div className="mt-4 flex min-h-[1.5rem] items-center">
           <DevicePicker label className="max-w-full" />
-          {!remoteDevice && <span className="ml-2 text-xs text-white/60">{thisDevice.name}</span>}
+          {!remoteDevice && <span className="ml-2 truncate text-xs text-white/60">{thisDevice.name}</span>}
+          <Link
+            to={inJam ? "/jam" : "/queue"}
+            aria-label="Queue"
+            className="-mr-2 ml-auto flex h-11 w-11 flex-shrink-0 items-center justify-center"
+          >
+            <QueueIcon className="h-6 w-6" />
+          </Link>
         </div>
       </div>
     </div>

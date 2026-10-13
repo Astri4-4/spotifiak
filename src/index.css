@@ -39,12 +39,38 @@
     /* No grey flash on tap, and no double-tap-to-zoom delay. */
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
+    /* iOS: don't enlarge text when the phone is turned sideways. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 
   body {
     @apply bg-spotify-base-black text-white antialiased;
     /* The app scrolls inside <main>; don't let the whole page bounce. */
     overscroll-behavior: none;
+    /* Like a native app: no text selection, and no long-press menu
+       (copy / look up / save image) on iOS. */
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  /* Text fields still need selecting, to edit what's typed. */
+  input,
+  textarea,
+  [contenteditable="true"] {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  /* iOS zooms into a focused field whose text is under 16px, and the app
+     can't be zoomed back out. Touch screens get 16px fields instead. */
+  @media (pointer: coarse) {
+    input,
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
   }
 
   /* Thin, dark, Spotify-style scrollbars */

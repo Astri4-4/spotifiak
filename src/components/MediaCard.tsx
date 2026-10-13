@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { PlayIcon } from "./icons";
 
@@ -15,7 +16,7 @@ export function MediaCard({ to, image, title, subtitle, round, onPlay }: MediaCa
   return (
     <Link
       to={to}
-      className="group relative flex min-w-0 flex-col gap-3 rounded-md bg-spotify-elevated-black/60 p-3 sm:p-4 transition-colors hover:bg-spotify-highlight-black"
+      className="group relative flex min-w-0 flex-col gap-3 rounded-md bg-spotify-elevated-black/60 p-3 sm:p-4 transition hover:bg-spotify-highlight-black active:scale-[0.98]"
     >
       <div className="relative">
         <img
@@ -42,6 +43,37 @@ export function MediaCard({ to, image, title, subtitle, round, onPlay }: MediaCa
       <div className="min-w-0">
         <p className="truncate font-semibold text-white" title={title}>{title}</p>
         {subtitle && <p className="line-clamp-2 mt-1 text-sm text-spotify-gray">{subtitle}</p>}
+      </div>
+    </Link>
+  );
+}
+
+interface MediaRowProps {
+  to: string;
+  /** An image URL, or any square visual (e.g. the Liked Songs gradient). */
+  image: string | ReactNode;
+  title: string;
+  subtitle?: string;
+  round?: boolean;
+}
+
+/** List-style counterpart of MediaCard, for long lists on phones. */
+export function MediaRow({ to, image, title, subtitle, round }: MediaRowProps) {
+  return (
+    <Link to={to} className="flex min-w-0 items-center gap-3 rounded-md py-2 active:bg-white/10">
+      {typeof image === "string" ? (
+        <img
+          src={image}
+          alt=""
+          loading="lazy"
+          className={`h-14 w-14 flex-shrink-0 object-cover ${round ? "rounded-full" : "rounded"}`}
+        />
+      ) : (
+        <span className="h-14 w-14 flex-shrink-0">{image}</span>
+      )}
+      <div className="min-w-0">
+        <p className="truncate font-medium text-white">{title}</p>
+        {subtitle && <p className="truncate text-sm text-spotify-gray">{subtitle}</p>}
       </div>
     </Link>
   );

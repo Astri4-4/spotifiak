@@ -54,7 +54,7 @@ export function Search() {
       {results.artist && results.artist.length > 0 && (
         <section className="mb-10">
           <h2 className="mb-4 text-xl font-bold">Artists</h2>
-          <CardGrid>
+          <CardGrid rowOnPhones>
             {results.artist.map((artist) => (
               <MediaCard
                 key={artist.id}
@@ -72,7 +72,7 @@ export function Search() {
       {results.album && results.album.length > 0 && (
         <section className="mb-10">
           <h2 className="mb-4 text-xl font-bold">Albums</h2>
-          <CardGrid>
+          <CardGrid rowOnPhones>
             {results.album.map((album) => (
               <MediaCard
                 key={album.id}

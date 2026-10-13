@@ -1,9 +1,10 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
 import { usePlayer } from "@/context/PlayerContext";
 import { useJam } from "@/context/JamContext";
-import { coverArtUrl, star, unstar } from "@/api/subsonic";
+import { coverArtUrl } from "@/api/subsonic";
 import { formatDuration } from "@/lib/format";
+import { useNowPlayingSheet } from "@/lib/nowPlayingSheet";
+import { useTrackStar } from "@/lib/trackStar";
 import {
   HeartIcon,
   JamIcon,
@@ -40,7 +41,8 @@ export function NowPlayingBar() {
   // Guests without control can't pause/skip - except to start audio the browser blocked.
   const canTogglePlay = canControl || audioBlocked;
 
-  const [starred, setStarred] = useState(false);
+  const { isStarred, toggle: toggleStar } = useTrackStar(current);
+  const { open: openSheet } = useNowPlayingSheet();
 
   if (!current) {
     return (
@@ -50,30 +52,20 @@ export function NowPlayingBar() {
     );
   }
 
-  const isStarred = starred || Boolean(current.starred);
-
-  async function toggleStar() {
-    if (!current) return;
-    try {
-      if (isStarred) {
-        await unstar({ id: [current.id] });
-        setStarred(false);
-      } else {
-        await star({ id: [current.id] });
-        setStarred(true);
-      }
-    } catch {
-      // ignore - non-critical UI affordance
-    }
-  }
-
   const total = duration || current.duration || 0;
   const percent = total > 0 ? Math.min(100, (progress / total) * 100) : 0;
 
   return (
     <>
-      {/* Mobile: compact mini-player sitting above the tab bar. */}
-      <div className="relative mx-2 mb-1 mt-1 flex flex-shrink-0 items-center gap-3 overflow-hidden rounded-md bg-spotify-highlight-black px-2 py-2 md:hidden">
+      {/* Mobile: compact mini-player sitting above the tab bar; tap it for the full-screen player. */}
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label="Open player"
+        onClick={openSheet}
+        onKeyDown={(e) => e.key === "Enter" && openSheet()}
+        className="relative mx-2 mb-1 mt-1 flex flex-shrink-0 items-center gap-3 overflow-hidden rounded-md bg-spotify-highlight-black px-2 py-2 transition-transform active:scale-[0.98] md:hidden"
+      >
         <img
           src={coverArtUrl(current.coverArt, 80)}
           alt=""
@@ -84,13 +76,16 @@ export function NowPlayingBar() {
           <p className="truncate text-xs text-spotify-gray">{current.artist}</p>
         </div>
         {inJam && (
-          <Link to="/jam" aria-label="Open Jam" className="flex h-10 w-10 flex-shrink-0 items-center justify-center text-spotify-green">
+          <Link to="/jam" aria-label="Open Jam" onClick={(e) => e.stopPropagation()} className="flex h-10 w-10 flex-shrink-0 items-center justify-center text-spotify-green">
             <JamIcon className="h-5 w-5" />
           </Link>
         )}
         <button
           type="button"
-          onClick={toggleStar}
+          onClick={(e) => {
+            e.stopPropagation();
+            void toggleStar();
+          }}
           aria-label={isStarred ? "Remove from Liked Songs" : "Save to Liked Songs"}
           className={`flex h-10 w-10 flex-shrink-0 items-center justify-center ${isStarred ? "text-spotify-green" : "text-white"}`}
         >
@@ -98,7 +93,10 @@ export function NowPlayingBar() {
         </button>
         <button
           type="button"
-          onClick={togglePlay}
+          onClick={(e) => {
+            e.stopPropagation();
+            togglePlay();
+          }}
           disabled={!canTogglePlay}
           aria-label={isPlaying ? "Pause" : "Play"}
           className="flex h-10 w-10 flex-shrink-0 items-center justify-center text-white disabled:opacity-40"
@@ -107,7 +105,10 @@ export function NowPlayingBar() {
         </button>
         <button
           type="button"
-          onClick={playNext}
+          onClick={(e) => {
+            e.stopPropagation();
+            playNext();
+          }}
           disabled={!canControl}
           aria-label="Next"
           className="flex h-10 w-10 flex-shrink-0 items-center justify-center text-white disabled:opacity-40"

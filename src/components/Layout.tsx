@@ -5,6 +5,7 @@ import { TopBar } from "./TopBar";
 import { NowPlayingBar } from "./NowPlayingBar";
 import { BottomNav } from "./BottomNav";
 import { JamBanner } from "./JamBanner";
+import { NowPlayingSheet } from "./NowPlayingSheet";
 
 export function Layout() {
   const mainRef = useRef<HTMLElement>(null);
@@ -34,6 +35,7 @@ export function Layout() {
       <JamBanner />
       <NowPlayingBar />
       <BottomNav />
+      <NowPlayingSheet />
     </div>
   );
 }

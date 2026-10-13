@@ -5,7 +5,8 @@ import { formatDurationLong } from "@/lib/format";
 import { usePlayer } from "@/context/PlayerContext";
 import { TrackList } from "@/components/TrackList";
 import { Loading } from "@/components/Loading";
-import { DetailHeader, PlayButton } from "@/components/DetailHeader";
+import { DetailHeader, PlayButton, ShufflePlayButton } from "@/components/DetailHeader";
+import { shuffled } from "@/lib/shuffle";
 
 export function AlbumDetail() {
   const { id } = useParams<{ id: string }>();
@@ -44,6 +45,11 @@ export function AlbumDetail() {
       />
       <div className="mt-4 flex items-center gap-6 sm:mt-6">
         <PlayButton onClick={() => playQueue(songs)} disabled={songs.length === 0} label="Play album" />
+        <ShufflePlayButton
+          onClick={() => playQueue(shuffled(songs))}
+          disabled={songs.length === 0}
+          label="Shuffle album"
+        />
       </div>
 
       <div className="mt-4 sm:mt-8">

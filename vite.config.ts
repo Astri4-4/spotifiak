@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
+import { readFileSync } from "node:fs";
 import qrcode from "qrcode-terminal";
 
 /**
@@ -38,6 +39,9 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), phoneQrCode()],
+    define: {
+      __APP_VERSION__: JSON.stringify(JSON.parse(readFileSync("package.json", "utf8")).version),
+    },
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),

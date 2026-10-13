@@ -60,7 +60,7 @@ export function Sidebar() {
             className="flex flex-shrink-0 items-center gap-3 rounded-md px-2 py-2 text-sm text-spotify-gray hover:bg-white/10 hover:text-white"
           >
             <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded bg-gradient-to-br from-indigo-600 to-blue-300">
-              <HeartIcon filled className="h-5 w-5 text-white" />
+              <HeartIcon filled className="h-5 w-5 text-pure-white" />
             </span>
             Liked Songs
           </NavLink>

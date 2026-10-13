@@ -46,8 +46,8 @@ function StartJam() {
 
   return (
     <div className="mx-auto flex max-w-lg flex-col items-center gap-6 pt-10 text-center md:pt-16">
-      <span className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-spotify-green to-emerald-800">
-        <JamIcon className="h-10 w-10 text-black" />
+      <span className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-spotify-green to-spotify-green/40">
+        <JamIcon className="h-10 w-10 text-on-accent" />
       </span>
       <div className="flex flex-col gap-2">
         <h1 className="text-2xl font-bold sm:text-3xl">Start a Jam</h1>
@@ -63,7 +63,7 @@ function StartJam() {
         type="button"
         onClick={handleStart}
         disabled={starting}
-        className="rounded-full bg-spotify-green px-8 py-3 font-bold text-black transition hover:scale-105 hover:bg-spotify-green-bright disabled:opacity-50"
+        className="rounded-full bg-spotify-green px-8 py-3 font-bold text-on-accent transition hover:scale-105 hover:bg-spotify-green-bright disabled:opacity-50"
       >
         {starting ? "Starting..." : "Start a Jam"}
       </button>
@@ -113,8 +113,8 @@ function JamSession() {
     <div className="flex flex-col gap-8 pt-4 md:pt-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-4">
-          <span className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-spotify-green to-emerald-800">
-            <JamIcon className="h-7 w-7 text-black" />
+          <span className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-spotify-green to-spotify-green/40">
+            <JamIcon className="h-7 w-7 text-on-accent" />
           </span>
           <div className="min-w-0">
             <h1 className="truncate text-2xl font-bold sm:text-3xl">{isHost ? "Your Jam" : `${jam.host}'s Jam`}</h1>
@@ -134,7 +134,7 @@ function JamSession() {
             onClick={() => (confirmEnd ? void endJam() : setConfirmEnd(true))}
             onBlur={() => setConfirmEnd(false)}
             className={`rounded-full px-5 py-2 text-sm font-bold transition ${
-              confirmEnd ? "bg-red-500 text-white" : "border border-white/40 hover:border-white"
+              confirmEnd ? "bg-red-500 text-pure-white" : "border border-white/40 hover:border-white"
             }`}
           >
             {confirmEnd ? "Click again to end for everyone" : "End Jam"}
@@ -167,7 +167,7 @@ function JamSession() {
           <ul className="flex flex-wrap gap-2">
             {jam.members.map((m) => (
               <li key={m.clientId} className="flex items-center gap-2 rounded-full bg-white/10 py-1 pl-1 pr-3 text-sm">
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-spotify-gray-subdued font-bold text-black">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 font-bold text-white">
                   {m.username[0]?.toUpperCase()}
                 </span>
                 {m.username}

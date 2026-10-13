@@ -51,8 +51,8 @@ export function JoinJam() {
 
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-6 pt-10 text-center md:pt-16">
-      <span className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-spotify-green to-emerald-800">
-        <JamIcon className="h-10 w-10 text-black" />
+      <span className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-spotify-green to-spotify-green/40">
+        <JamIcon className="h-10 w-10 text-on-accent" />
       </span>
       <div className="flex flex-col gap-2">
         <h1 className="text-2xl font-bold sm:text-3xl">{preview.host} invited you to a Jam</h1>
@@ -65,7 +65,7 @@ export function JoinJam() {
       <button
         type="button"
         onClick={handleJoin}
-        className="rounded-full bg-spotify-green px-8 py-3 font-bold text-black transition hover:scale-105 hover:bg-spotify-green-bright"
+        className="rounded-full bg-spotify-green px-8 py-3 font-bold text-on-accent transition hover:scale-105 hover:bg-spotify-green-bright"
       >
         Join Jam
       </button>

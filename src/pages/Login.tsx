@@ -132,7 +132,7 @@ export function Login() {
           <button
             type="submit"
             disabled={submitting}
-            className="mt-2 rounded-full bg-spotify-green py-3 text-sm font-bold text-black transition hover:scale-[1.02] hover:bg-spotify-green-bright disabled:opacity-50"
+            className="mt-2 rounded-full bg-spotify-green py-3 text-sm font-bold text-on-accent transition hover:scale-[1.02] hover:bg-spotify-green-bright disabled:opacity-50"
           >
             {submitting ? "Logging in..." : "Log In"}
           </button>

@@ -18,7 +18,7 @@ export function JamBanner() {
       <button
         type="button"
         onClick={resumeAudio}
-        className="mx-2 mt-1 flex flex-shrink-0 items-center justify-center gap-2 rounded-md bg-spotify-green px-4 py-2 text-sm font-bold text-black md:mx-0 md:mt-0 md:rounded-none"
+        className="mx-2 mt-1 flex flex-shrink-0 items-center justify-center gap-2 rounded-md bg-spotify-green px-4 py-2 text-sm font-bold text-on-accent md:mx-0 md:mt-0 md:rounded-none"
       >
         <JamIcon className="h-4 w-4" />
         Tap to start listening to the Jam

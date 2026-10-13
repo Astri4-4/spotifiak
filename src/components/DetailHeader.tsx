@@ -43,7 +43,7 @@ export function PlayButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-spotify-green text-black transition hover:scale-105 hover:bg-spotify-green-bright disabled:opacity-50 sm:h-14 sm:w-14"
+      className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-spotify-green text-on-accent transition hover:scale-105 hover:bg-spotify-green-bright disabled:opacity-50 sm:h-14 sm:w-14"
       aria-label={label}
     >
       <PlayIcon className="h-5 w-5 fill-current pl-0.5 sm:h-6 sm:w-6 sm:pl-1" />

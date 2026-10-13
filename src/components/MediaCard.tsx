@@ -36,7 +36,7 @@ export function MediaCard({ to, image, title, subtitle, round, onPlay }: MediaCa
             }}
             className="absolute bottom-2 right-2 hidden h-11 w-11 [@media(hover:hover)]:flex translate-y-2 items-center justify-center rounded-full bg-spotify-green opacity-0 shadow-xl transition-all duration-200 hover:scale-105 hover:bg-spotify-green-bright group-hover:translate-y-0 group-hover:opacity-100"
           >
-            <PlayIcon className="h-5 w-5 fill-black pl-0.5" />
+            <PlayIcon className="h-5 w-5 fill-on-accent pl-0.5" />
           </button>
         )}
       </div>

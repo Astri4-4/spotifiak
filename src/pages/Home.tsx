@@ -25,7 +25,7 @@ function AlbumRow({ title, albums }: { title: string; albums: AlbumID3[] }) {
   return (
     <section className="mb-8 md:mb-10">
       <h2 className="mb-3 text-xl font-bold md:mb-4 sm:text-2xl">{title}</h2>
-      <CardGrid>
+      <CardGrid rowOnPhones>
         {albums.map((album) => (
           <MediaCard
             key={album.id}

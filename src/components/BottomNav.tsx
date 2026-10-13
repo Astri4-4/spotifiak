@@ -11,7 +11,7 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
 export function BottomNav() {
   const { jamId } = useJam();
   return (
-    <nav className="flex flex-shrink-0 bg-black/95 pb-[env(safe-area-inset-bottom)] md:hidden">
+    <nav className="flex flex-shrink-0 bg-black/95 pb-safe-bottom md:hidden">
       <NavLink to="/" end className={linkClass}>
         <HomeIcon className="h-6 w-6 fill-current" />
         Home

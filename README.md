@@ -30,6 +30,12 @@ npm run jam   # the Jam server, in a second terminal (only needed for Jam)
 
 > This repo doesn't ship a `package-lock.json` yet (it was scaffolded without a local Node install) - the first `npm install` you run will create one. Please commit it, so CI and Docker builds become fully reproducible.
 
+### Testing on your phone
+
+`npm run dev` also serves the app on your local network and prints a QR code: scan it with your phone's camera (phone on the same Wi-Fi as the computer) to open the app in the phone's browser, with live reload as you edit. It's the quickest way to check the mobile layout. Run `npm run jam` too if you want to try Jam. If the page doesn't load, allow incoming connections for Node in your computer's firewall.
+
+Native-only behaviour (background playback, lock-screen controls, the status bar) still needs the real app from a release build, see [Mobile app](#mobile-app-ios--android).
+
 By default, `vite dev` proxies `/rest` to `https://navidrome.sachaguerin.fr`. To point it at a different server (e.g. a local test instance), create `.env.local`:
 
 ```

@@ -12,3 +12,7 @@ npm-debug.log*
 !.vscode/extensions.json
 .idea/
 release/
+
+# Mobile app builds (e.g. downloaded from a release)
+*.ipa
+*.apk

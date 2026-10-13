@@ -62,7 +62,7 @@ export function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-black px-4">
+    <div className="flex min-h-screen items-center justify-center bg-black px-4 pb-[calc(var(--safe-bottom)+1rem)] pt-[calc(var(--safe-top)+1rem)]">
       <div className="w-full max-w-sm rounded-lg bg-spotify-elevated-black p-8 shadow-2xl">
         <div className="mb-8 flex flex-col items-center gap-3">
           <svg viewBox="0 0 24 24" className="h-12 w-12">

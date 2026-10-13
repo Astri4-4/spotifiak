@@ -3,14 +3,30 @@
 @tailwind utilities;
 
 @layer base {
+  /* Safe areas (notch, status bar, home indicator). Capacitor's Android
+     WebView provides them as --safe-area-inset-* variables; iOS and
+     browsers as env(). Both are 0 on ordinary screens. */
+  :root {
+    --safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+    --safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  }
+
   html,
   body,
   #root {
     height: 100%;
   }
 
+  html {
+    /* No grey flash on tap, and no double-tap-to-zoom delay. */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
   body {
     @apply bg-spotify-base-black text-white antialiased;
+    /* The app scrolls inside <main>; don't let the whole page bounce. */
+    overscroll-behavior: none;
   }
 
   /* Thin, dark, Spotify-style scrollbars */
@@ -84,4 +100,13 @@ input[type="range"].spotify-slider::-moz-range-thumb {
 }
 input[type="range"].spotify-slider:hover::-moz-range-thumb {
   opacity: 1;
+}
+/* Touch screens have no hover: always show the thumb so it can be grabbed. */
+@media (hover: none) {
+  input[type="range"].spotify-slider::-webkit-slider-thumb {
+    opacity: 1;
+  }
+  input[type="range"].spotify-slider::-moz-range-thumb {
+    opacity: 1;
+  }
 }

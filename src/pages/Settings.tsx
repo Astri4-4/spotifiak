@@ -2,6 +2,8 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useJam } from "@/context/JamContext";
+import { useConnect } from "@/context/PlayerContext";
+import { defaultDeviceName } from "@/lib/device";
 import { SubsonicError } from "@/api/client";
 import { ping } from "@/api/subsonic";
 import { checkJamServer } from "@/api/jam";
@@ -43,6 +45,7 @@ export function Settings() {
             Log out
           </button>
         </div>
+        <DeviceName />
       </Section>
 
       <Section title="Servers">
@@ -128,6 +131,46 @@ export function Settings() {
         <p className="pb-4 text-center text-xs text-spotify-gray">Spotifiak {__APP_VERSION__}</p>
       )}
     </div>
+  );
+}
+
+/** This device's name, as your other devices see it in their device list. */
+function DeviceName() {
+  const { thisDevice, renameDevice } = useConnect();
+  const [name, setName] = useState(thisDevice.name);
+  const changed = name.trim() !== thisDevice.name && !(name.trim() === "" && thisDevice.name === defaultDeviceName());
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        renameDevice(name);
+        setName(name.trim() || defaultDeviceName());
+      }}
+      className="mt-5 flex flex-col gap-2"
+    >
+      <label htmlFor="device-name" className="text-sm font-semibold">
+        This device's name
+      </label>
+      <div className="flex gap-3">
+        <input
+          id="device-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder={defaultDeviceName()}
+          maxLength={60}
+          className="min-w-0 flex-1 rounded-md border border-white/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-white"
+        />
+        <button
+          type="submit"
+          disabled={!changed}
+          className="flex-shrink-0 rounded-full bg-spotify-green px-5 py-2 text-sm font-bold text-on-accent transition hover:bg-spotify-green-bright disabled:opacity-40"
+        >
+          Save
+        </button>
+      </div>
+      <p className="text-xs text-spotify-gray">Shown on your other devices, to play music here or control it from there.</p>
+    </form>
   );
 }
 

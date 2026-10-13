@@ -1,6 +1,7 @@
 import { useRef, useState, type TouchEvent } from "react";
 import { Link } from "react-router-dom";
-import { usePlayer } from "@/context/PlayerContext";
+import { useConnect, usePlayer } from "@/context/PlayerContext";
+import { DevicePicker } from "./DevicePicker";
 import { useJam } from "@/context/JamContext";
 import { coverArtUrl } from "@/api/subsonic";
 import { formatDuration } from "@/lib/format";
@@ -45,6 +46,7 @@ export function NowPlayingSheet() {
     audioBlocked,
   } = usePlayer();
   const { jam } = useJam();
+  const { remoteDevice, thisDevice } = useConnect();
   const { isOpen, close } = useNowPlayingSheet();
   const { isStarred, toggle: toggleStar } = useTrackStar(current);
 
@@ -216,6 +218,11 @@ export function NowPlayingSheet() {
             <RepeatIcon className="h-6 w-6" />
             {repeat === "one" && <span className="absolute right-1.5 top-1.5 text-[10px] font-bold">1</span>}
           </button>
+        </div>
+
+        <div className="mt-4 flex min-h-[1.5rem] items-center">
+          <DevicePicker label className="max-w-full" />
+          {!remoteDevice && <span className="ml-2 text-xs text-white/60">{thisDevice.name}</span>}
         </div>
       </div>
     </div>

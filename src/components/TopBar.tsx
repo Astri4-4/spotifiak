@@ -25,6 +25,7 @@ export function TopBar() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             type="search"
+            data-search-input
             enterKeyHint="search"
             placeholder="What do you want to listen to?"
             className="w-full min-w-0 bg-transparent text-base outline-none md:text-sm placeholder:text-spotify-gray"

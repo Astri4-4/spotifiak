@@ -9,6 +9,7 @@ import { SubsonicError } from "@/api/client";
 import { ping } from "@/api/subsonic";
 import { checkJamServer } from "@/api/jam";
 import { CheckIcon, LogoutIcon } from "@/components/icons";
+import { setShortcutsOpen } from "@/lib/shortcutsDialog";
 import { getServerConfig, serversConfigurable, setServerConfig, type ServerConfig } from "@/lib/servers";
 import { ACCENT_COLORS, resolveTheme, setTheme, THEMES, useTheme, type Theme } from "@/lib/theme";
 import {
@@ -127,6 +128,24 @@ export function Settings() {
           })}
         </div>
       </Section>
+
+      {/* Only where there's likely a keyboard: devices with a mouse or trackpad. */}
+      <div className="hidden [@media(hover:hover)]:block">
+        <Section title="Keyboard shortcuts">
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-sm text-spotify-gray">
+              Control playback, search and more from the keyboard. Press <kbd className="rounded bg-white/10 px-1.5 font-sans text-xs font-semibold">?</kbd> anywhere to see them.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShortcutsOpen(true)}
+              className="flex-shrink-0 rounded-full border border-white/40 px-4 py-2 text-sm font-bold hover:border-white"
+            >
+              Show shortcuts
+            </button>
+          </div>
+        </Section>
+      </div>
 
       {updatesSupported ? (
         <Section title="Updates">

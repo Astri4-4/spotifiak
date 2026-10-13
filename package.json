@@ -6,6 +6,10 @@
   "description": "A Spotify-styled web client for a self-hosted Navidrome server.",
   "main": "electron/main.mjs",
   "type": "module",
+  "updates": {
+    "github": "Astri4-4/spotifiak",
+    "minShellVersion": "0.0.0"
+  },
   "scripts": {
     "dev": "vite --host",
     "jam": "node --watch server/jam.mjs",
@@ -20,6 +24,7 @@
     "@capacitor/core": "^8.5.3",
     "@capacitor/ios": "^8.5.3",
     "@capgo/capacitor-media-session": "^8.1.1",
+    "@capgo/capacitor-updater": "^8.52.1",
     "blueimp-md5": "^2.19.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

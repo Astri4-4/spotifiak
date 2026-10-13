@@ -13,9 +13,14 @@ import http from "node:http";
 import https from "node:https";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { applyUpdate, checkForUpdates, getStatus, markReady, onUpdateStatus, resolveWebRoot, watchTrial } from "./updates.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST_DIR = path.join(__dirname, "..", "dist");
+/** The web app being served: dist/, or a live update (see updates.mjs). Set at startup. */
+let webRoot = DIST_DIR;
+/** Delay before the background update check, so it doesn't compete with startup. */
+const UPDATE_CHECK_DELAY_MS = 5000;
 
 // A fixed port keeps the page origin (and so localStorage, i.e. the login)
 // stable across launches. If it's taken we fall back to a random one.
@@ -113,13 +118,13 @@ function proxy(req, res, base) {
 
 function serveStatic(req, res) {
   const { pathname } = new URL(req.url, "http://localhost");
-  let file = path.join(DIST_DIR, path.normalize(decodeURIComponent(pathname)));
-  if (!file.startsWith(DIST_DIR)) return sendJson(res, 403, { error: "Forbidden" });
+  let file = path.join(webRoot, path.normalize(decodeURIComponent(pathname)));
+  if (!file.startsWith(webRoot)) return sendJson(res, 403, { error: "Forbidden" });
 
   let stat = fs.statSync(file, { throwIfNoEntry: false });
   // Single-page app: let React Router handle unknown paths.
   if (!stat?.isFile()) {
-    file = path.join(DIST_DIR, "index.html");
+    file = path.join(webRoot, "index.html");
     stat = fs.statSync(file);
   }
   res.writeHead(200, {
@@ -214,10 +219,23 @@ if (!app.requestSingleInstanceLock()) {
     loadConfig();
     ipcMain.handle("config:get", () => config);
     ipcMain.handle("config:set", (_event, next) => saveConfig(next));
+    ipcMain.handle("update:ready", () => markReady());
+    ipcMain.handle("update:status", () => getStatus());
+    ipcMain.handle("update:check", () => checkForUpdates());
+    ipcMain.handle("update:apply", () => applyUpdate());
+
+    webRoot = resolveWebRoot(DIST_DIR);
 
     const port = await startServer();
     appOrigin = `http://127.0.0.1:${port}`;
     createWindow();
+    // A live update that never finishes starting is swapped for the previous version.
+    watchTrial(DIST_DIR, (root) => {
+      webRoot = root;
+      mainWindow?.reload();
+    });
+    onUpdateStatus((status) => mainWindow?.webContents.send("update:status-changed", status));
+    setTimeout(() => void checkForUpdates(), UPDATE_CHECK_DELAY_MS);
 
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();

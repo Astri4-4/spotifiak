@@ -15,6 +15,15 @@ const config: CapacitorConfig = {
     // Light status/navigation bar icons on the dark UI. The app draws under
     // the bars (viewport-fit=cover) and pads itself with the safe-area insets.
     SystemBars: { style: "DARK", initialViewportFitValueHint: "cover" },
+    // Live updates (src/lib/updates.ts) in manual mode: the app decides what
+    // to download from GitHub Releases. The empty URLs turn off every call to
+    // Capgo's cloud, including usage and crash statistics.
+    CapacitorUpdater: {
+      autoUpdate: false,
+      updateUrl: "",
+      statsUrl: "",
+      channelUrl: "",
+    },
   },
   android: {
     // The app is served from https://localhost; let it play audio and load

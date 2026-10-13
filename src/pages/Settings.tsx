@@ -8,6 +8,13 @@ import { jamServerReachable } from "@/api/jam";
 import { CheckIcon, LogoutIcon } from "@/components/icons";
 import { getServerConfig, serversConfigurable, setServerConfig, type ServerConfig } from "@/lib/servers";
 import { ACCENT_COLORS, resolveTheme, setTheme, THEMES, useTheme, type Theme } from "@/lib/theme";
+import {
+  applyUpdate,
+  checkForUpdates,
+  updatesSupported,
+  useUpdateStatus,
+  type UpdateStatus,
+} from "@/lib/updates";
 
 const DEFAULT_THEME_IDS = ["dark", "light"];
 const editorThemes = THEMES.filter((t) => !DEFAULT_THEME_IDS.includes(t.id));
@@ -113,7 +120,13 @@ export function Settings() {
         </div>
       </Section>
 
-      <p className="pb-4 text-center text-xs text-spotify-gray">Spotifiak {__APP_VERSION__}</p>
+      {updatesSupported ? (
+        <Section title="Updates">
+          <UpdateSettings />
+        </Section>
+      ) : (
+        <p className="pb-4 text-center text-xs text-spotify-gray">Spotifiak {__APP_VERSION__}</p>
+      )}
     </div>
   );
 }
@@ -244,6 +257,58 @@ function ServerSettings() {
         </button>
       </div>
     </form>
+  );
+}
+
+const UPDATE_MESSAGES: Record<UpdateStatus["phase"], (s: UpdateStatus) => string> = {
+  idle: () => "",
+  checking: () => "Checking for updates...",
+  downloading: (s) => `Downloading version ${s.version}...`,
+  "up-to-date": () => "You're up to date.",
+  ready: (s) => `Version ${s.version} is ready. It will be used the next time the app starts.`,
+  error: (s) => s.message ?? "Couldn't check for updates.",
+};
+
+/** Current version and live updates, for the desktop and mobile apps. */
+function UpdateSettings() {
+  const status = useUpdateStatus();
+  const busy = status.phase === "checking" || status.phase === "downloading";
+
+  const message = UPDATE_MESSAGES[status.phase](status);
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-semibold">Spotifiak {__APP_VERSION__}</p>
+          {message && (
+            <p className={`text-sm ${status.phase === "error" ? "text-red-400" : status.phase === "ready" ? "text-spotify-green" : "text-spotify-gray"}`}>
+              {message}
+            </p>
+          )}
+        </div>
+        {status.phase === "ready" ? (
+          <button
+            type="button"
+            onClick={() => void applyUpdate()}
+            className="flex-shrink-0 rounded-full bg-spotify-green px-5 py-2 text-sm font-bold text-on-accent transition hover:bg-spotify-green-bright"
+          >
+            Restart now
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => void checkForUpdates()}
+            disabled={busy}
+            className="flex-shrink-0 rounded-full border border-white/40 px-4 py-2 text-sm font-bold hover:border-white disabled:opacity-40"
+          >
+            Check for updates
+          </button>
+        )}
+      </div>
+      <p className="text-xs text-spotify-gray">
+        Updates to the app itself download automatically. Some releases also need a new install of the app, which you'll be told about here.
+      </p>
+    </div>
   );
 }
 

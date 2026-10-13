@@ -30,6 +30,7 @@ function phoneQrCode(): Plugin {
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
+  const pkg = JSON.parse(readFileSync("package.json", "utf8"));
   // In dev, proxy /rest (Subsonic API) and /cover (shortcut helper) straight to
   // your real Navidrome instance so the browser never hits CORS issues.
   // Override by setting VITE_DEV_NAVIDROME_URL in a local .env file.
@@ -40,7 +41,8 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), phoneQrCode()],
     define: {
-      __APP_VERSION__: JSON.stringify(JSON.parse(readFileSync("package.json", "utf8")).version),
+      __APP_VERSION__: JSON.stringify(pkg.version),
+      __UPDATE_REPO__: JSON.stringify(pkg.updates.github),
     },
     resolve: {
       alias: {

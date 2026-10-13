@@ -12,6 +12,7 @@ directories:
 files:
   - dist/**/*
   - electron/**/*
+  - shared/**/*
   - package.json
   - "!node_modules/**/*"
 

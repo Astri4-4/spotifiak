@@ -107,7 +107,7 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-`.github/workflows/release.yml` then builds the macOS, Windows and Linux installers plus the Android APK and iOS IPA (the app version is taken from the tag) and publishes them as a GitHub Release with auto-generated release notes. Tags with a suffix (e.g. `v1.1.0-beta.1`) are marked as pre-releases. To check the builds without releasing anything, run the workflow by hand from **Actions → Release → Run workflow** on any branch; the files are then attached to the run as artifacts. The Docker workflow also runs on the tag and pushes the matching image.
+`.github/workflows/release.yml` then builds the macOS, Windows and Linux installers, the Android APK and iOS IPA, and the live-update bundle (the app version is taken from the tag) and publishes them as a GitHub Release with auto-generated release notes. Tags with a suffix (e.g. `v1.1.0-beta.1`) are marked as pre-releases. To check the builds without releasing anything, run the workflow by hand from **Actions → Release → Run workflow** on any branch; the files are then attached to the run as artifacts. The Docker workflow also runs on the tag and pushes the matching image.
 
 Builds are unsigned by default. To sign them, add these repository secrets and electron-builder will pick them up: `CSC_LINK` (base64 `.p12` certificate) and `CSC_KEY_PASSWORD`, plus `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` and `APPLE_TEAM_ID` to notarize the macOS app.
 
@@ -139,6 +139,19 @@ base64 -i spotifiak.keystore | pbcopy   # paste as ANDROID_KEYSTORE_BASE64
 ```
 
 plus `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` (`spotifiak`) and `ANDROID_KEY_PASSWORD`. Keep the keystore file safe: losing it means users have to reinstall.
+
+## Live updates (desktop and mobile)
+
+The desktop and mobile apps update their app code on their own, without reinstalling (or re-signing on iOS). Each release also carries the built web app (`spotifiak-web-<version>.zip`) and an `update.json`; a few seconds after launch the apps check the repo's latest release on GitHub, download a newer bundle in the background, and use it from the next launch (or right away with **Settings → Updates → Restart now**). Pre-releases aren't offered.
+
+- **Desktop** (`electron/updates.mjs`): bundles go to the app's data directory (`updates/`) and the local server serves them instead of the bundled `dist/`.
+- **Android / iOS** (`src/lib/updates.ts`): [`@capgo/capacitor-updater`](https://github.com/Cap-go/capacitor-updater) in manual mode. All of Capgo's cloud endpoints (update checks, channels, statistics) are turned off in `capacitor.config.ts`; the app only talks to GitHub.
+- **Safety net**: a new bundle has to report that it started. If it doesn't (within 15 s on desktop, 10 s on mobile), the app goes back to the last version that worked and never retries that one.
+- **Requirement**: the repo's releases must be publicly downloadable (a public repo).
+
+Live updates only cover the web app. When a release changes native or Electron code (a new Capacitor plugin, `electron/`, `Info.plist`, `AndroidManifest.xml`, ...), set `updates.minShellVersion` in `package.json` to that release's version: older installs then skip the bundle and say a new install is needed, instead of loading code their shell can't run.
+
+To test the desktop flow against a fake GitHub API, start the app with `SPOTIFIAK_UPDATES_API=http://127.0.0.1:<port>`.
 
 ## CI/CD
 

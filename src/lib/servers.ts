@@ -1,4 +1,5 @@
 import { Capacitor } from "@capacitor/core";
+import type { DesktopUpdatesBridge } from "./updates";
 
 // Which Navidrome and Jam servers the app talks to.
 //
@@ -19,6 +20,8 @@ interface DesktopBridge {
   getConfig(): Promise<ServerConfig>;
   /** Rejects with a readable message if a URL is invalid. */
   setConfig(config: ServerConfig): Promise<ServerConfig>;
+  /** Live updates (electron/updates.mjs); missing in desktop apps older than the feature. */
+  updates?: DesktopUpdatesBridge;
 }
 
 declare global {

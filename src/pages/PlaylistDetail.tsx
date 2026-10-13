@@ -181,7 +181,14 @@ export function PlaylistDetail() {
         ) : editing ? (
           <EditableSongs songs={songs} onRemove={removeSong} onMove={moveSong} />
         ) : (
-          <TrackList tracks={songs} showAlbum showCover starredIds={starredIds} onToggleStar={handleToggleStar} />
+          <TrackList
+            tracks={songs}
+            showAlbum
+            showCover
+            starredIds={starredIds}
+            onToggleStar={handleToggleStar}
+            onRemoveFromPlaylist={canEdit ? removeSong : undefined}
+          />
         )}
       </div>
     </div>

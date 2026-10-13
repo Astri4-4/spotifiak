@@ -4,7 +4,8 @@ import type { Child } from "@/types/subsonic";
 import { coverArtUrl } from "@/api/subsonic";
 import { formatDuration } from "@/lib/format";
 import { usePlayer } from "@/context/PlayerContext";
-import { CheckIcon, HeartIcon, PauseIcon, PlayIcon, QueueAddIcon } from "./icons";
+import { openSongMenu } from "@/lib/songMenu";
+import { CheckIcon, HeartIcon, MoreIcon, PauseIcon, PlayIcon, QueueAddIcon } from "./icons";
 
 // Phones: title | actions. md: # | title | actions. lg+: # | title | album | actions.
 const COLUMNS =
@@ -19,6 +20,8 @@ interface TrackListProps {
   showCover?: boolean;
   starredIds?: Set<string>;
   onToggleStar?: (track: Child) => void;
+  /** Offers "Remove from this playlist" in the song menu. */
+  onRemoveFromPlaylist?: (index: number) => void;
 }
 
 export function TrackList({
@@ -29,6 +32,7 @@ export function TrackList({
   showCover = false,
   starredIds,
   onToggleStar,
+  onRemoveFromPlaylist,
 }: TrackListProps) {
   const { current, isPlaying, togglePlay, playQueue, enqueue, inJam } = usePlayer();
   const [justQueued, setJustQueued] = useState<string | null>(null);
@@ -37,6 +41,18 @@ export function TrackList({
     enqueue([track]);
     setJustQueued(track.id);
     window.setTimeout(() => setJustQueued((id) => (id === track.id ? null : id)), 1500);
+  }
+
+  function openMenu(index: number, x: number, y: number) {
+    const track = tracks[index];
+    openSongMenu({
+      track,
+      x,
+      y,
+      starred: starredIds ? starredIds.has(track.id) : undefined,
+      onToggleStar: onToggleStar && (() => onToggleStar(track)),
+      onRemoveFromPlaylist: onRemoveFromPlaylist && (() => onRemoveFromPlaylist(index)),
+    });
   }
 
   function handleRowClick(index: number) {
@@ -71,6 +87,10 @@ export function TrackList({
             <div
               key={`${track.id}-${index}`}
               onDoubleClick={() => handleRowClick(index)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                openMenu(index, e.clientX, e.clientY);
+              }}
               // Touch screens have no double-click: a single tap plays the row.
               onClick={() => {
                 if (window.matchMedia("(hover: none)").matches) handleRowClick(index);
@@ -169,6 +189,19 @@ export function TrackList({
                   </button>
                 )}
                 <span className="hidden tabular-nums sm:inline">{formatDuration(track.duration)}</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    openMenu(index, rect.right - 256, rect.bottom + 4);
+                  }}
+                  className="flex h-8 w-8 items-center justify-center hover:text-white md:h-auto md:w-auto md:opacity-0 md:group-hover:opacity-100"
+                  aria-label={`More options for ${track.title}`}
+                  title="More options"
+                >
+                  <MoreIcon className="h-4 w-4 fill-current" />
+                </button>
               </div>
             </div>
           );

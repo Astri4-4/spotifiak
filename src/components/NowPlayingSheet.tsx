@@ -7,10 +7,12 @@ import { coverArtUrl } from "@/api/subsonic";
 import { formatDuration } from "@/lib/format";
 import { useNowPlayingSheet } from "@/lib/nowPlayingSheet";
 import { useTrackStar } from "@/lib/trackStar";
+import { openSongMenu } from "@/lib/songMenu";
 import {
   ChevronDownIcon,
   HeartIcon,
   JamIcon,
+  MoreIcon,
   PauseIcon,
   PlayIcon,
   QueueIcon,
@@ -112,7 +114,17 @@ export function NowPlayingSheet() {
                 <JamIcon className="h-6 w-6" />
               </Link>
             ) : (
-              <span className="h-11 w-11" />
+              <button
+                type="button"
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  openSongMenu({ track: current, x: rect.left, y: rect.bottom });
+                }}
+                aria-label="More options"
+                className="-mr-2 flex h-11 w-11 items-center justify-center"
+              >
+                <MoreIcon className="h-6 w-6 fill-current" />
+              </button>
             )}
           </div>
 

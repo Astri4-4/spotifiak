@@ -75,7 +75,12 @@ async function call<T>(path: string, query: Record<string, string> = {}, body?: 
     throw new DiscoverError(0, "Couldn't reach the server.");
   }
   const data = await res.json().catch(() => null);
-  if (!res.ok) throw new DiscoverError(res.status, data?.error ?? `Discover request failed (${res.status}).`);
+  if (!res.ok) {
+    // No explanation: a proxy in between (e.g. Cloudflare) answered instead.
+    const fallback =
+      res.status >= 500 ? "Discover isn't available right now: the server or the download server can't be reached." : `Discover request failed (${res.status}).`;
+    throw new DiscoverError(res.status, data?.error ?? fallback);
+  }
   return data as T;
 }
 

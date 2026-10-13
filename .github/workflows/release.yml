@@ -217,15 +217,18 @@ jobs:
 
       - run: npm run build
 
-      # update.json says which app shells can run this bundle: bump
+      # update.json says which app shells can run this bundle (bump
       # `updates.minShellVersion` in package.json when a release changes
-      # native or Electron code, so older installs don't load it.
+      # native or Electron code, so older installs don't load it) and the
+      # zip's SHA-256, which the mobile updater requires and the desktop
+      # app checks.
       - name: Package bundle
         run: |
           version=$(node -p 'require("./package.json").version')
           mkdir -p release
           (cd dist && zip -qr "../release/spotifiak-web-$version.zip" .)
-          node -e 'const p = require("./package.json"); console.log(JSON.stringify({ version: p.version, minShellVersion: p.updates.minShellVersion }))' > release/update.json
+          export CHECKSUM=$(sha256sum "release/spotifiak-web-$version.zip" | cut -d' ' -f1)
+          node -e 'const p = require("./package.json"); console.log(JSON.stringify({ version: p.version, minShellVersion: p.updates.minShellVersion, checksum: process.env.CHECKSUM }))' > release/update.json
           cat release/update.json
 
       - uses: actions/upload-artifact@v4

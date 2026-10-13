@@ -148,6 +148,11 @@ export async function getNowPlaying(): Promise<NowPlayingEntry[]> {
   return res["subsonic-response"].nowPlaying?.entry ?? [];
 }
 
+/** Asks Navidrome to look for new music now (admins only; others get an error). */
+export async function startScan(): Promise<void> {
+  await request("startScan");
+}
+
 export async function scrobble(id: string, submission = true): Promise<void> {
   await request("scrobble", { id, submission });
 }

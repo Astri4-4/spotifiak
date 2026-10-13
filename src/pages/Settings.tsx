@@ -10,6 +10,8 @@ import { ping } from "@/api/subsonic";
 import { checkJamServer } from "@/api/jam";
 import { CheckIcon, LogoutIcon } from "@/components/icons";
 import { setShortcutsOpen } from "@/lib/shortcutsDialog";
+import { setDiscoverConfig, useDiscoverConfig } from "@/lib/discover";
+import { setDiscoverUrl } from "@/api/discover";
 import { getServerConfig, serversConfigurable, setServerConfig, type ServerConfig } from "@/lib/servers";
 import { ACCENT_COLORS, resolveTheme, setTheme, THEMES, useTheme, type Theme } from "@/lib/theme";
 import {
@@ -127,6 +129,10 @@ export function Settings() {
             );
           })}
         </div>
+      </Section>
+
+      <Section title="Discover">
+        <DiscoverSettings />
       </Section>
 
       {/* Only where there's likely a keyboard: devices with a mouse or trackpad. */}
@@ -409,6 +415,80 @@ function UpdateSettings() {
         Updates to the app itself download automatically. Some releases also need a new install of the app, which you'll be told about here.
       </p>
     </div>
+  );
+}
+
+/** The deemix server Discover downloads through. It's set on the Jam server, by Navidrome admins. */
+function DiscoverSettings() {
+  const config = useDiscoverConfig();
+  const [url, setUrl] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<Status>(null);
+
+  if (!config) return <p className="text-sm text-spotify-gray">Loading...</p>;
+
+  if (!config.canEdit) {
+    return (
+      <p className="text-sm text-spotify-gray">
+        {config.available
+          ? "Turn on Discover in Search to find music on Deezer and download it into your library."
+          : "Discover finds music on Deezer and downloads it into your library. A Navidrome admin can set it up here."}
+      </p>
+    );
+  }
+
+  const value = url ?? config.url ?? "";
+  const changed = value.trim().replace(/\/+$/, "") !== (config.url ?? "");
+
+  async function handleSave(e: FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setStatus(null);
+    try {
+      const next = await setDiscoverUrl(value);
+      setDiscoverConfig(next);
+      setUrl(null);
+      setStatus(
+        next.persisted === false
+          ? { kind: "warning", message: "Saved, but only until the server restarts: set DEEMIX_URL on it to keep it." }
+          : { kind: "success", message: next.available ? "Saved. Discover is on." : "Saved. Discover is off." },
+      );
+    } catch (err) {
+      setStatus({ kind: "error", message: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const statusColor = { success: "text-spotify-green", warning: "text-yellow-500", error: "text-red-400" };
+
+  return (
+    <form onSubmit={handleSave} className="flex flex-col gap-3">
+      <label className="flex flex-col gap-2 text-sm font-semibold">
+        <span>
+          Deemix server <span className="font-normal text-spotify-gray">(admins only)</span>
+        </span>
+        <input
+          type="url"
+          value={value}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="http://deemix.example.com"
+          className="rounded-md border border-white/20 bg-transparent px-3 py-3 text-sm font-normal outline-none focus:border-white"
+        />
+        <span className="text-xs font-normal text-spotify-gray">
+          Its download folder must be Navidrome's music folder. Only the Spotifiak server talks to it: keep it out of
+          reach of the internet, since deemix gives its Deezer login to anyone who asks. Leave empty to turn Discover off.
+        </span>
+      </label>
+      {status && <p className={`text-sm ${statusColor[status.kind]}`}>{status.message}</p>}
+      <button
+        type="submit"
+        disabled={!changed || saving}
+        className="self-end rounded-full bg-spotify-green px-5 py-2 text-sm font-bold text-on-accent transition hover:bg-spotify-green-bright disabled:opacity-40"
+      >
+        Save
+      </button>
+    </form>
   );
 }
 

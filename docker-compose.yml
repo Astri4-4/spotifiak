@@ -10,8 +10,17 @@ services:
       # Must be reachable from *inside* this container (it's never exposed
       # to the browser directly - nginx proxies /rest/ to it server-side).
       NAVIDROME_URL: ${NAVIDROME_URL:-https://navidrome.sachaguerin.fr}
+      # Optional: deemix, for Discover (download music into the library). Only
+      # this container talks to it, so it can stay on your home network.
+      DEEMIX_URL: ${DEEMIX_URL:-}
+    volumes:
+      # Keeps settings changed from the app (the deemix server) across restarts.
+      - spotifion-data:/opt/jam/data
     ports:
       - "8080:8080"
     # If you're fronting this with Traefik/Caddy/nginx-proxy instead of the
     # ports mapping above, drop the ports block and add your proxy's labels
     # here, pointing at container port 8080.
+
+volumes:
+  spotifion-data:

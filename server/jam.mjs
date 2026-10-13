@@ -15,6 +15,14 @@
 //   GET  /jam-api/sessions/:id/events      SSE stream of session state
 //   POST /jam-api/sessions/:id/actions     { type, ... } - see ACTIONS
 //   GET  /jam-api/healthz                  liveness/readiness (no auth)
+//
+// It also connects the devices of each account, like Spotify Connect: every
+// open app is a device; the one playing publishes what it plays, and the
+// others show it and can control it or move playback to themselves.
+//
+//   GET  /jam-api/me/events?deviceId&name&platform   SSE: devices + playback
+//   POST /jam-api/me/state?deviceId        { state, claim? } from the playing device
+//   POST /jam-api/me/commands?deviceId     { target, command } - see COMMANDS
 
 import http from "node:http";
 import crypto from "node:crypto";
@@ -29,6 +37,7 @@ const HEARTBEAT_MS = 15 * 1000;
 const MAX_QUEUE = 1000;
 const MAX_TRACKS_PER_ACTION = 200;
 const MAX_BODY_BYTES = 1024 * 1024;
+const MAX_DEVICE_QUEUE = 500;
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I
 
 /** @type {Map<string, Session>} */
@@ -159,10 +168,10 @@ const TRACK_FIELDS = {
 };
 
 /** Keeps only the track fields the UI needs, with the right types. */
-function sanitizeTracks(tracks) {
+function sanitizeTracks(tracks, max = MAX_TRACKS_PER_ACTION) {
   if (!Array.isArray(tracks)) return [];
   return tracks
-    .slice(0, MAX_TRACKS_PER_ACTION)
+    .slice(0, max)
     .filter((t) => t && typeof t.id === "string" && typeof t.title === "string")
     .map((t) => {
       const clean = {};
@@ -341,6 +350,157 @@ function openEvents(req, res, session, username, clientId) {
   });
 }
 
+// ---- devices (Connect) ----------------------------------------------------
+
+/**
+ * @typedef {{ res: http.ServerResponse, id: string, name: string, platform: string }} Device
+ * @typedef {{
+ *   queue: Record<string, string | number>[], index: number, playing: boolean,
+ *   position: number, duration: number, volume: number, shuffle: boolean,
+ *   repeat: "off" | "all" | "one",
+ * }} PlaybackState
+ * @typedef {{
+ *   devices: Map<string, Device>,
+ *   active: { deviceId: string, state: PlaybackState, positionAt: number } | null,
+ * }} Home
+ */
+
+/** Each account's connected devices, by Navidrome username. @type {Map<string, Home>} */
+const homes = new Map();
+
+function homeOf(username) {
+  let home = homes.get(username);
+  if (!home) {
+    home = { devices: new Map(), active: null };
+    homes.set(username, home);
+  }
+  return home;
+}
+
+function homeSnapshot(home) {
+  return {
+    devices: [...home.devices.values()].map(({ id, name, platform }) => ({ id, name, platform })),
+    active: home.active,
+    now: Date.now(),
+  };
+}
+
+function broadcastHome(home) {
+  const payload = homeSnapshot(home);
+  for (const device of home.devices.values()) send(device.res, "devices", payload);
+}
+
+const REPEAT_MODES = ["off", "all", "one"];
+const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
+
+/** @returns {PlaybackState} */
+function sanitizeState(raw) {
+  if (!raw || typeof raw !== "object") throw new HttpError(400, "Missing state.");
+  const queue = sanitizeTracks(raw.queue, MAX_DEVICE_QUEUE);
+  const num = (v) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+  return {
+    queue,
+    index: clamp(Math.trunc(num(raw.index)), -1, queue.length - 1),
+    playing: raw.playing === true,
+    position: Math.max(0, num(raw.position)),
+    duration: Math.max(0, num(raw.duration)),
+    volume: clamp(num(raw.volume), 0, 1),
+    shuffle: raw.shuffle === true,
+    repeat: REPEAT_MODES.includes(raw.repeat) ? raw.repeat : "off",
+  };
+}
+
+/** Where the active device's playhead is right now, in seconds. */
+function activePosition(active) {
+  const { state } = active;
+  if (!state.playing) return state.position;
+  const elapsed = (Date.now() - active.positionAt) / 1000;
+  return state.duration ? Math.min(state.duration, state.position + elapsed) : state.position + elapsed;
+}
+
+/** What a device may ask another one to do; each returns the command to forward (sanitized). */
+const COMMANDS = {
+  play: () => ({ type: "play" }),
+  pause: () => ({ type: "pause" }),
+  next: () => ({ type: "next" }),
+  previous: () => ({ type: "previous" }),
+  seek: (c) => ({ type: "seek", position: Math.max(0, Number(c.position) || 0) }),
+  setVolume: (c) => ({ type: "setVolume", volume: clamp(Number(c.volume) || 0, 0, 1) }),
+  setShuffle: (c) => ({ type: "setShuffle", value: c.value === true }),
+  setRepeat: (c) => ({ type: "setRepeat", value: REPEAT_MODES.includes(c.value) ? c.value : "off" }),
+  playQueue: (c) => {
+    const tracks = sanitizeTracks(c.tracks, MAX_DEVICE_QUEUE);
+    return { type: "playQueue", tracks, startIndex: clamp(Math.trunc(Number(c.startIndex) || 0), 0, Math.max(0, tracks.length - 1)) };
+  },
+  enqueue: (c) => ({ type: "enqueue", tracks: sanitizeTracks(c.tracks) }),
+  // Move playback to the target: it resumes the active device's queue where it is.
+  transfer: (_c, home) =>
+    home.active && { type: "transfer", state: { ...home.active.state, position: activePosition(home.active) } },
+};
+
+function openDeviceEvents(res, username, home, device) {
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-store",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  res.write("retry: 3000\n\n");
+  // A reconnecting device replaces its old stream.
+  home.devices.get(device.id)?.res.end();
+  home.devices.set(device.id, device);
+  broadcastHome(home);
+
+  res.on("close", () => {
+    if (home.devices.get(device.id) !== device) return;
+    home.devices.delete(device.id);
+    if (home.active?.deviceId === device.id) home.active = null;
+    if (home.devices.size === 0) {
+      homes.delete(username);
+    } else {
+      broadcastHome(home);
+    }
+  });
+}
+
+async function handleDevices(req, res, url, username, sub) {
+  const deviceId = url.searchParams.get("deviceId");
+  if (!deviceId || deviceId.length > 100) return json(res, 400, { error: "Missing deviceId." });
+  const home = homeOf(username);
+
+  if (sub === "events") {
+    if (req.method !== "GET") return json(res, 405, { error: "Method not allowed." });
+    const name = (url.searchParams.get("name") || "Unknown device").slice(0, 60);
+    const platform = (url.searchParams.get("platform") || "web").slice(0, 20);
+    return openDeviceEvents(res, username, home, { res, id: deviceId, name, platform });
+  }
+
+  if (req.method !== "POST") return json(res, 405, { error: "Method not allowed." });
+  if (!home.devices.has(deviceId)) return json(res, 409, { error: "This device isn't connected." });
+  const body = await readJson(req);
+
+  if (sub === "state") {
+    const state = sanitizeState(body.state);
+    // A device becomes the active one by playing (or by taking over paused
+    // playback with `claim`); a paused one only updates itself.
+    if (state.playing || body.claim === true || home.active?.deviceId === deviceId) {
+      home.active = { deviceId, state, positionAt: Date.now() };
+      broadcastHome(home);
+    }
+    return json(res, 204);
+  }
+
+  // sub === "commands"
+  const target = home.devices.get(String(body.target));
+  if (!target) return json(res, 404, { error: "That device is no longer available." });
+  const make = body.command && Object.hasOwn(COMMANDS, body.command.type) ? COMMANDS[body.command.type] : null;
+  if (!make) return json(res, 400, { error: "Unknown command." });
+  const command = make(body.command, home);
+  if (!command) return json(res, 409, { error: "Nothing is playing." });
+  send(target.res, "command", { from: deviceId, command });
+  return json(res, 204);
+}
+
 async function handle(req, res) {
   const url = new URL(req.url, "http://jam.local");
   // The mobile app calls this server cross-origin. Any origin is fine: every
@@ -356,6 +516,13 @@ async function handle(req, res) {
   }
   // Unauthenticated health check for container/Kubernetes probes.
   if (url.pathname === "/jam-api/healthz") return json(res, 200, { ok: true, sessions: sessions.size });
+
+  const deviceRoute = url.pathname.match(/^\/jam-api\/me\/(events|state|commands)\/?$/);
+  if (deviceRoute) {
+    const username = await authenticate(url.searchParams);
+    if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });
+    return handleDevices(req, res, url, username, deviceRoute[1]);
+  }
   const match = url.pathname.match(/^\/jam-api\/sessions(?:\/([A-Z0-9]{6})(\/events|\/actions)?)?\/?$/);
   if (!match) return json(res, 404, { error: "Not found." });
   const [, id, sub] = match;
@@ -427,6 +594,9 @@ const server = http.createServer((req, res) => {
 // and drop sessions nobody has been connected to for a while.
 setInterval(() => {
   const now = Date.now();
+  for (const home of homes.values()) {
+    for (const device of home.devices.values()) send(device.res, "ping", { now });
+  }
   for (const session of sessions.values()) {
     for (const l of session.listeners) send(l.res, "ping", { now });
     if (session.idleSince !== null && now - session.idleSince > IDLE_SESSION_TTL_MS) {

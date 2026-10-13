@@ -11,6 +11,15 @@ A Spotify-styled web client for a self-hosted [Navidrome](https://www.navidrome.
 
 - **Jam** (listening together): `server/jam.mjs` is a dependency-free Node server that holds shared sessions - the queue, who's listening, and a playback clock. Clients follow it over Server-Sent Events and send actions with `POST`; every listener still streams the audio from Navidrome on their own device and re-syncs to the shared playhead. Requests are authenticated by checking the caller's Subsonic token against Navidrome's `ping`, so only users of your Navidrome server can start or join a Jam. Sessions live in memory: restarting the container ends any running Jams.
 
+## Devices (play on one, control from another)
+
+Like Spotify Connect: every open app signed in to the same Navidrome account (desktop, phone, browser tab) is a device. The one playing music shows up on all the others, which can see what's playing and control it (play/pause, skip, seek, volume, shuffle/repeat), and picking a song anywhere plays it on that device. The speaker button in the player lists your devices: tap one to move playback there, picking up where it was. Only one device plays at a time; starting music on another one pauses the first.
+
+- Devices go through the Jam server (`/jam-api/me/...` in `server/jam.mjs`), so it needs a Jam server: the web app always has one, the desktop and mobile apps use the one set in **Settings → Servers**.
+- Each device is named after its platform ("Mac", "iPhone", "Chrome on Windows"); rename it in **Settings → Account**.
+- A device in a Jam follows the Jam instead.
+- Phones only show up while the app is open or playing (iOS and Android suspend it otherwise).
+
 ## Jam
 
 Open **Jam** in the sidebar (or the tab bar on mobile) and start one, then share the invite link or 6-character code. Guests log in with their own account on the same Navidrome server.

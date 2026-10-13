@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { usePlayer } from "@/context/PlayerContext";
+import { useConnect, usePlayer } from "@/context/PlayerContext";
+import { DevicePicker } from "./DevicePicker";
 import { useJam } from "@/context/JamContext";
 import { coverArtUrl } from "@/api/subsonic";
 import { formatDuration } from "@/lib/format";
@@ -43,11 +44,16 @@ export function NowPlayingBar() {
 
   const { isStarred, toggle: toggleStar } = useTrackStar(current);
   const { open: openSheet } = useNowPlayingSheet();
+  const { remoteDevice } = useConnect();
 
   if (!current) {
     return (
       <footer className="hidden h-20 flex-shrink-0 items-center justify-center md:flex lg:h-24 border-t border-white/10 bg-spotify-base-black px-4 text-sm text-spotify-gray">
+        <span className="flex-1" />
         {inJam ? "The Jam's queue is empty. Play or add a song for everyone." : "Pick something to play"}
+        <span className="flex flex-1 justify-end">
+          <DevicePicker />
+        </span>
       </footer>
     );
   }
@@ -73,8 +79,14 @@ export function NowPlayingBar() {
         />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">{current.title}</p>
-          <p className="truncate text-xs text-spotify-gray">{current.artist}</p>
+          {remoteDevice ? (
+            // Like Spotify: the device it's playing on replaces the artist.
+            <p className="truncate text-xs font-semibold text-spotify-green">Playing on {remoteDevice.name}</p>
+          ) : (
+            <p className="truncate text-xs text-spotify-gray">{current.artist}</p>
+          )}
         </div>
+        <DevicePicker className="flex h-10 w-10 items-center justify-center" />
         {inJam && (
           <Link to="/jam" aria-label="Open Jam" onClick={(e) => e.stopPropagation()} className="flex h-10 w-10 flex-shrink-0 items-center justify-center text-spotify-green">
             <JamIcon className="h-5 w-5" />
@@ -226,6 +238,7 @@ export function NowPlayingBar() {
             <JamIcon className="h-4 w-4" />
             {inJam && jam && <span className="hidden lg:inline">{jam.members.length}</span>}
           </Link>
+          <DevicePicker className="mr-1" />
           <VolumeIcon
             level={volume === 0 ? 0 : volume < 0.5 ? 1 : 2}
             className="h-4 w-4 flex-shrink-0 fill-spotify-gray"
@@ -241,6 +254,11 @@ export function NowPlayingBar() {
           />
         </div>
       </footer>
+      {remoteDevice && (
+        <div className="hidden h-6 flex-shrink-0 items-center justify-end gap-2 bg-spotify-green px-4 text-xs font-semibold text-on-accent md:flex">
+          Playing on {remoteDevice.name}
+        </div>
+      )}
     </>
   );
 }

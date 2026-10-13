@@ -7,6 +7,7 @@ import { BottomNav } from "./BottomNav";
 import { JamBanner } from "./JamBanner";
 import { NowPlayingSheet } from "./NowPlayingSheet";
 import { FriendActivity } from "./FriendActivity";
+import { KeyboardShortcuts } from "./KeyboardShortcuts";
 import { CloseIcon } from "./icons";
 import { setFriendsPanelOpen, useFriendsPanelOpen } from "@/lib/friendsPanel";
 
@@ -57,6 +58,7 @@ export function Layout() {
       <NowPlayingBar />
       <BottomNav />
       <NowPlayingSheet />
+      <KeyboardShortcuts />
     </div>
   );
 }

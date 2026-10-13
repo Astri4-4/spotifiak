@@ -295,6 +295,27 @@ const ACTIONS = {
     else if (index === session.currentIndex) startTrackAt(session, index);
   },
 
+  // Reorder what's coming up: put `uid` right after `afterUid` (null: first).
+  // Positions are by uid, so other changes meanwhile don't misplace it.
+  move(session, username, body) {
+    requireControl(session, username);
+    const from = session.queue.findIndex((i) => i.uid === body.uid);
+    if (from === -1) throw new HttpError(404, "That song is no longer in the queue.");
+    if (from <= session.currentIndex) throw new HttpError(400, "Only songs coming up can be moved.");
+    const [item] = session.queue.splice(from, 1);
+    let to = 0;
+    if (body.afterUid != null) {
+      const after = session.queue.findIndex((i) => i.uid === body.afterUid);
+      if (after === -1) {
+        session.queue.splice(from, 0, item);
+        throw new HttpError(404, "The queue changed meanwhile. Try again.");
+      }
+      to = after + 1;
+    }
+    // Never before or onto the current song; it stays current.
+    session.queue.splice(Math.max(to, session.currentIndex + 1), 0, item);
+  },
+
   setGuestControl(session, username, body) {
     requireHost(session, username);
     session.guestsCanControl = Boolean(body.value);

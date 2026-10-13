@@ -6,7 +6,8 @@ import { coverArtUrl } from "@/api/subsonic";
 import { parseJamCode, type JamQueueItem } from "@/api/jam";
 import { Loading } from "@/components/Loading";
 import { jamInviteOrigin } from "@/lib/servers";
-import { CheckIcon, CloseIcon, JamIcon } from "@/components/icons";
+import { CheckIcon, CloseIcon, DragHandleIcon, JamIcon } from "@/components/icons";
+import { useDragReorder } from "@/lib/useDragReorder";
 
 export function Jam() {
   const { jamId, jam } = useJam();
@@ -238,16 +239,71 @@ function JamSession() {
       </section>
 
       {nextUp.length > 0 && (
-        <section>
-          <h2 className="mb-3 text-xl font-bold">Next up</h2>
-          <div className="flex flex-col">
-            {nextUp.map((item) => (
-              <QueueRow key={item.uid} item={item} canJump={canControl} canRemove={canRemove(item)} />
-            ))}
-          </div>
-        </section>
+        <NextUp items={nextUp} after={nowPlaying} canMove={canControl} canRemove={canRemove} />
       )}
     </div>
+  );
+}
+
+/**
+ * The songs coming up. Those who control playback can drag them into a new
+ * order, shown at once until the Jam's next state confirms it.
+ */
+function NextUp({
+  items,
+  after,
+  canMove,
+  canRemove,
+}: {
+  items: JamQueueItem[];
+  /** The song playing, which the first one follows. */
+  after: JamQueueItem | null;
+  canMove: boolean;
+  canRemove: (item: JamQueueItem) => boolean;
+}) {
+  const { jam, act } = useJam();
+  const [pending, setPending] = useState<{ version: number; order: string[] } | null>(null);
+  // Only until the Jam's state changes (with this move, or anyone else's change).
+  const shown =
+    pending && pending.version === jam?.version
+      ? pending.order.map((uid) => items.find((i) => i.uid === uid)).filter((i): i is JamQueueItem => Boolean(i))
+      : items;
+
+  const { itemProps, handleProps } = useDragReorder((from, to) => {
+    const order = [...shown];
+    const [moved] = order.splice(from, 1);
+    order.splice(to, 0, moved);
+    if (jam) setPending({ version: jam.version, order: order.map((i) => i.uid) });
+    const afterUid = to === 0 ? (after?.uid ?? null) : order[to - 1].uid;
+    void act({ type: "move", uid: moved.uid, afterUid });
+  });
+
+  return (
+    <section>
+      <h2 className="mb-3 text-xl font-bold">Next up</h2>
+      <div className="flex flex-col">
+        {shown.map((item, position) => (
+          <div
+            key={item.uid}
+            {...(canMove ? itemProps(position) : {})}
+            className="flex items-center gap-1 rounded-md data-[dragging]:bg-spotify-highlight-black data-[dragging]:shadow-xl"
+          >
+            {canMove && (
+              <span
+                {...handleProps(position)}
+                aria-label={`Drag to move ${item.track.title}`}
+                className="flex h-8 w-6 flex-shrink-0 items-center justify-center text-spotify-gray hover:text-white"
+              >
+                <DragHandleIcon className="h-4 w-4 fill-current" />
+              </span>
+            )}
+            <div className="min-w-0 flex-1">
+              <QueueRow item={item} canJump={canMove} canRemove={canRemove(item)} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 

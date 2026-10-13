@@ -62,6 +62,7 @@ export type JamAction =
   | { type: "previous" }
   | { type: "ended"; uid: string }
   | { type: "remove"; uid: string }
+  | { type: "move"; uid: string; afterUid: string | null }
   | { type: "setGuestControl"; value: boolean }
   | { type: "end" };
 

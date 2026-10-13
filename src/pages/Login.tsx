@@ -15,6 +15,8 @@ export function Login() {
   const [navidromeUrl, setNavidromeUrl] = useState("");
   const [jamUrl, setJamUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // Set when Settings sends you here after switching servers.
+  const notice = (location.state as { notice?: string } | null)?.notice;
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -73,6 +75,7 @@ export function Login() {
           <p className="text-center text-sm text-spotify-gray">
             Use your Navidrome account credentials.
           </p>
+          {notice && <p className="text-center text-sm font-semibold">{notice}</p>}
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -90,7 +93,9 @@ export function Login() {
                 />
               </label>
               <label className="flex flex-col gap-2 text-sm font-semibold">
-                Jam server <span className="font-normal text-spotify-gray">(optional)</span>
+                <span>
+                  Jam server <span className="font-normal text-spotify-gray">(optional)</span>
+                </span>
                 <input
                   type="url"
                   value={jamUrl}

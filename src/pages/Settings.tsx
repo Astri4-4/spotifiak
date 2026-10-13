@@ -1,7 +1,12 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { useJam } from "@/context/JamContext";
+import { SubsonicError } from "@/api/client";
+import { ping } from "@/api/subsonic";
+import { jamServerReachable } from "@/api/jam";
 import { CheckIcon, LogoutIcon } from "@/components/icons";
-import { getServerConfig, serversConfigurable } from "@/lib/servers";
+import { getServerConfig, serversConfigurable, setServerConfig, type ServerConfig } from "@/lib/servers";
 import { ACCENT_COLORS, resolveTheme, setTheme, THEMES, useTheme, type Theme } from "@/lib/theme";
 
 const DEFAULT_THEME_IDS = ["dark", "light"];
@@ -11,12 +16,6 @@ export function Settings() {
   const { username, logout } = useAuth();
   const settings = useTheme();
   const theme = resolveTheme(settings.theme);
-  // Desktop and mobile apps only: the server is chosen at login.
-  const [server, setServer] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (serversConfigurable) void getServerConfig().then((config) => setServer(config.navidromeUrl));
-  }, []);
 
   return (
     <div className="mx-auto max-w-2xl pt-4 md:pt-6">
@@ -27,10 +26,7 @@ export function Settings() {
           <span className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-white/20 text-lg font-bold">
             {username?.[0]?.toUpperCase() ?? "?"}
           </span>
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-semibold">{username}</p>
-            {server && <p className="truncate text-sm text-spotify-gray">{server}</p>}
-          </div>
+          <p className="min-w-0 flex-1 truncate font-semibold">{username}</p>
           <button
             type="button"
             onClick={logout}
@@ -40,6 +36,16 @@ export function Settings() {
             Log out
           </button>
         </div>
+      </Section>
+
+      <Section title="Servers">
+        {serversConfigurable ? (
+          <ServerSettings />
+        ) : (
+          <p className="text-sm text-spotify-gray">
+            This app's Navidrome and Jam servers are set by whoever deployed it (<code>NAVIDROME_URL</code>).
+          </p>
+        )}
       </Section>
 
       <Section title="Appearance">
@@ -109,6 +115,135 @@ export function Settings() {
 
       <p className="pb-4 text-center text-xs text-spotify-gray">Spotifiak {__APP_VERSION__}</p>
     </div>
+  );
+}
+
+/** Subsonic error codes meaning "these credentials don't work here". */
+const AUTH_ERRORS = [40, 41];
+
+type Status = { kind: "success" | "warning" | "error"; message: string } | null;
+
+/** Navidrome and Jam server URLs, for the desktop and mobile apps. */
+function ServerSettings() {
+  const { logout } = useAuth();
+  const { jamId, leaveJam } = useJam();
+  const navigate = useNavigate();
+  const [saved, setSaved] = useState<ServerConfig | null>(null);
+  const [navidromeUrl, setNavidromeUrl] = useState("");
+  const [jamUrl, setJamUrl] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<Status>(null);
+
+  useEffect(() => {
+    void getServerConfig().then((config) => {
+      setSaved(config);
+      setNavidromeUrl(config.navidromeUrl);
+      setJamUrl(config.jamUrl);
+    });
+  }, []);
+
+  if (!saved) return null;
+  const previous = saved;
+  const changed = navidromeUrl.trim() !== saved.navidromeUrl || jamUrl.trim() !== saved.jamUrl;
+
+  async function handleSave(e: FormEvent) {
+    e.preventDefault();
+    setStatus(null);
+    setSaving(true);
+    try {
+      await save();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function save() {
+    try {
+      await setServerConfig({ navidromeUrl, jamUrl });
+    } catch (err) {
+      setStatus({ kind: "error", message: err instanceof Error ? err.message : String(err) });
+      return;
+    }
+    const next = await getServerConfig();
+
+    if (next.navidromeUrl !== previous.navidromeUrl) {
+      try {
+        await ping();
+      } catch (err) {
+        if (err instanceof SubsonicError && AUTH_ERRORS.includes(err.code)) {
+          // The server works, but not with this login: sign in there instead.
+          logout();
+          navigate("/login", { replace: true, state: { notice: `Log in to your account on ${next.navidromeUrl}.` } });
+          return;
+        }
+        // Unreachable (or not Navidrome): keep the working settings.
+        await setServerConfig(previous);
+        setStatus({ kind: "error", message: `Couldn't connect to ${next.navidromeUrl}. Your settings weren't changed.` });
+        return;
+      }
+    }
+
+    // A Jam lives on the server it was started on.
+    if (next.jamUrl !== previous.jamUrl && jamId) leaveJam();
+
+    setSaved(next);
+    setNavidromeUrl(next.navidromeUrl);
+    setJamUrl(next.jamUrl);
+    if (next.jamUrl && next.jamUrl !== previous.jamUrl && !(await jamServerReachable())) {
+      setStatus({ kind: "warning", message: `Saved, but the Jam server at ${next.jamUrl} didn't respond, so Jam may not work.` });
+      return;
+    }
+    setStatus({ kind: "success", message: "Saved." });
+  }
+
+  const inputClass =
+    "rounded-md border border-white/20 bg-transparent px-3 py-3 text-sm font-normal outline-none focus:border-white";
+  const statusColor = { success: "text-spotify-green", warning: "text-yellow-500", error: "text-red-400" };
+
+  return (
+    <form onSubmit={handleSave} className="flex flex-col gap-4">
+      <label className="flex flex-col gap-2 text-sm font-semibold">
+        Navidrome server
+        <input
+          type="url"
+          value={navidromeUrl}
+          onChange={(e) => setNavidromeUrl(e.target.value)}
+          placeholder="https://navidrome.example.com"
+          className={inputClass}
+          required
+        />
+      </label>
+      <label className="flex flex-col gap-2 text-sm font-semibold">
+        <span>
+          Jam server <span className="font-normal text-spotify-gray">(optional)</span>
+        </span>
+        <input
+          type="url"
+          value={jamUrl}
+          onChange={(e) => setJamUrl(e.target.value)}
+          placeholder="https://spotifiak.example.com"
+          className={inputClass}
+        />
+        <span className="text-xs font-normal text-spotify-gray">
+          The address of the Spotifiak web app, to listen together with its users.
+        </span>
+      </label>
+
+      {status && <p className={`text-sm ${statusColor[status.kind]}`}>{status.message}</p>}
+
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs text-spotify-gray">
+          {navidromeUrl.trim() !== saved.navidromeUrl && "Changing the Navidrome server may ask you to log in again."}
+        </p>
+        <button
+          type="submit"
+          disabled={!changed || saving}
+          className="flex-shrink-0 rounded-full bg-spotify-green px-5 py-2 text-sm font-bold text-on-accent transition hover:bg-spotify-green-bright disabled:opacity-40"
+        >
+          {saving ? "Checking..." : "Save"}
+        </button>
+      </div>
+    </form>
   );
 }
 

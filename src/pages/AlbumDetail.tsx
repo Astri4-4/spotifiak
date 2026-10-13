@@ -7,6 +7,7 @@ import { TrackList } from "@/components/TrackList";
 import { Loading } from "@/components/Loading";
 import { DetailHeader, PlayButton, ShufflePlayButton } from "@/components/DetailHeader";
 import { shuffled } from "@/lib/shuffle";
+import { RemoveDuplicatesButton } from "@/components/RemoveDuplicatesButton";
 
 export function AlbumDetail() {
   const { id } = useParams<{ id: string }>();
@@ -43,13 +44,14 @@ export function AlbumDetail() {
           </>
         }
       />
-      <div className="mt-4 flex items-center gap-6 sm:mt-6">
+      <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3 sm:mt-6">
         <PlayButton onClick={() => playQueue(songs)} disabled={songs.length === 0} label="Play album" />
         <ShufflePlayButton
           onClick={() => playQueue(shuffled(songs))}
           disabled={songs.length === 0}
           label="Shuffle album"
         />
+        <RemoveDuplicatesButton kind="album" id={album.id} onDone={() => getAlbum(album.id).then(setAlbum)} />
       </div>
 
       <div className="mt-4 sm:mt-8">

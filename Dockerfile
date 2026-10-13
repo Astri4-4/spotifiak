@@ -36,7 +36,7 @@ USER 101
 
 COPY docker/nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --chmod=755 docker/40-start-jam-server.sh /docker-entrypoint.d/40-start-jam-server.sh
-COPY server/jam.mjs server/discover.mjs /opt/jam/
+COPY server/*.mjs /opt/jam/
 COPY --from=build /app/dist /usr/share/nginx/html
 
 EXPOSE 8080

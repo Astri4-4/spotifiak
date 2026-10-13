@@ -5,6 +5,7 @@ namespace: spotifion
 
 resources:
   - namespace.yaml
+  - music-volume.yaml
   - deployment.yaml
   - service.yaml
   - ingress.yaml

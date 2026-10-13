@@ -21,6 +21,7 @@ import { CloseIcon, DragHandleIcon } from "@/components/icons";
 import { shuffled } from "@/lib/shuffle";
 import { refreshPlaylists } from "@/lib/playlists";
 import { useDragReorder } from "@/lib/useDragReorder";
+import { RemoveDuplicatesButton } from "@/components/RemoveDuplicatesButton";
 
 export function PlaylistDetail() {
   const { id } = useParams<{ id: string }>();
@@ -135,7 +136,7 @@ export function PlaylistDetail() {
           </>
         }
       />
-      <div className="mt-4 flex items-center gap-6 sm:mt-6">
+      <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3 sm:mt-6">
         <PlayButton onClick={() => playQueue(songs)} disabled={songs.length === 0} label="Play playlist" />
         <ShufflePlayButton
           onClick={() => playQueue(shuffled(songs))}
@@ -155,6 +156,7 @@ export function PlaylistDetail() {
             {editing ? "Done" : "Edit playlist"}
           </button>
         )}
+        <RemoveDuplicatesButton kind="playlist" id={id} onDone={() => load(id)} />
         <button
           type="button"
           onClick={handleDelete}

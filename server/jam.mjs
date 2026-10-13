@@ -28,10 +28,15 @@
 // downloading into the library) - see discover.mjs.
 //
 //   /jam-api/discover/...
+//
+// And it removes duplicate songs from the music files - see duplicates.mjs.
+//
+//   /jam-api/duplicates/...
 
 import http from "node:http";
 import crypto from "node:crypto";
 import { handleDiscover } from "./discover.mjs";
+import { handleDuplicates } from "./duplicates.mjs";
 
 const PORT = Number(process.env.JAM_PORT || 3001);
 const HOST = process.env.JAM_HOST || "127.0.0.1";
@@ -549,6 +554,12 @@ async function handle(req, res) {
   }
   // Unauthenticated health check for container/Kubernetes probes.
   if (url.pathname === "/jam-api/healthz") return json(res, 200, { ok: true, sessions: sessions.size });
+
+  if (url.pathname === "/jam-api/duplicates" || url.pathname.startsWith("/jam-api/duplicates/")) {
+    const username = await authenticate(url.searchParams);
+    if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });
+    return handleDuplicates(req, res, url, username, { navidromeUrl: NAVIDROME_URL, readJson });
+  }
 
   if (url.pathname.startsWith("/jam-api/discover/")) {
     const username = await authenticate(url.searchParams);

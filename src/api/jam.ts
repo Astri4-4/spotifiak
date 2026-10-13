@@ -106,15 +106,31 @@ export async function getJam(id: string): Promise<JamSnapshot | null> {
   }
 }
 
-/** Whether the configured Jam server answers its health check. */
-export async function jamServerReachable(): Promise<boolean> {
+export type JamServerCheck = "ok" | "unreachable" | "outdated";
+
+/**
+ * Checks the configured Jam server. "outdated": it answers, but without the
+ * CORS headers the mobile app needs for the live event stream (Jam servers
+ * from before the mobile app; the web and desktop apps go through a proxy and
+ * don't need them).
+ */
+export async function checkJamServer(): Promise<JamServerCheck> {
   const base = jamBase();
-  if (base === null) return false;
+  if (base === null) return "unreachable";
   try {
-    return (await fetch(`${base}/jam-api/healthz`)).ok;
+    const res = await fetch(`${base}/jam-api/healthz`);
+    if (!res.ok) return "unreachable";
+    // A non-empty base means a cross-origin call: the mobile app.
+    if (base && !res.headers.get("access-control-allow-origin")) return "outdated";
+    return "ok";
   } catch {
-    return false;
+    return "unreachable";
   }
+}
+
+/** Whether this app talks to the Jam server cross-origin (the mobile app), so it relies on its CORS headers. */
+export function jamIsCrossOrigin(): boolean {
+  return Boolean(jamBase());
 }
 
 export function jamEventsUrl(id: string, clientId: string): string {

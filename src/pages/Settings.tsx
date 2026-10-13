@@ -4,7 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useJam } from "@/context/JamContext";
 import { SubsonicError } from "@/api/client";
 import { ping } from "@/api/subsonic";
-import { jamServerReachable } from "@/api/jam";
+import { checkJamServer } from "@/api/jam";
 import { CheckIcon, LogoutIcon } from "@/components/icons";
 import { getServerConfig, serversConfigurable, setServerConfig, type ServerConfig } from "@/lib/servers";
 import { ACCENT_COLORS, resolveTheme, setTheme, THEMES, useTheme, type Theme } from "@/lib/theme";
@@ -202,9 +202,16 @@ function ServerSettings() {
     setSaved(next);
     setNavidromeUrl(next.navidromeUrl);
     setJamUrl(next.jamUrl);
-    if (next.jamUrl && next.jamUrl !== previous.jamUrl && !(await jamServerReachable())) {
-      setStatus({ kind: "warning", message: `Saved, but the Jam server at ${next.jamUrl} didn't respond, so Jam may not work.` });
-      return;
+    if (next.jamUrl && next.jamUrl !== previous.jamUrl) {
+      const check = await checkJamServer();
+      if (check === "unreachable") {
+        setStatus({ kind: "warning", message: `Saved, but the Jam server at ${next.jamUrl} didn't respond, so Jam may not work.` });
+        return;
+      }
+      if (check === "outdated") {
+        setStatus({ kind: "warning", message: `Saved, but the Jam server at ${next.jamUrl} is too old for the mobile app: update it to the latest Docker image.` });
+        return;
+      }
     }
     setStatus({ kind: "success", message: "Saved." });
   }

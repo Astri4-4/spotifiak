@@ -8,7 +8,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { scrobble, streamUrl } from "@/api/subsonic";
+import { MediaSession, type ActionHandler, type MediaSessionAction } from "@capgo/capacitor-media-session";
+import { coverArtUrl, scrobble, streamUrl } from "@/api/subsonic";
 import { toJamTrack } from "@/api/jam";
 import type { Child } from "@/types/subsonic";
 import { useJam } from "./JamContext";
@@ -63,6 +64,9 @@ function seekIfPossible(audio: HTMLAudioElement, seconds: number) {
     }
   }
 }
+
+/** Media Session calls fail where the API is missing (some browsers); it's an extra, so ignore that. */
+function ignoreError() {}
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -250,6 +254,57 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     [inJam, canControl, act],
   );
 
+  // Lock screen, notification and media keys (via the Media Session API, or
+  // natively on Android). On Android this also keeps a foreground service
+  // running while music plays, so playback - including moving on to the
+  // next track - carries on with the app in the background.
+  const mediaControlsRef = useRef({ isPlaying, togglePlay, playNext, playPrevious, seek });
+  mediaControlsRef.current = { isPlaying, togglePlay, playNext, playPrevious, seek };
+
+  useEffect(() => {
+    const controls = mediaControlsRef;
+    const handlers: [MediaSessionAction, ActionHandler][] = [
+      ["play", () => !controls.current.isPlaying && controls.current.togglePlay()],
+      ["pause", () => controls.current.isPlaying && controls.current.togglePlay()],
+      ["nexttrack", () => controls.current.playNext()],
+      ["previoustrack", () => controls.current.playPrevious()],
+      ["seekto", ({ seekTime }) => seekTime != null && controls.current.seek(seekTime)],
+    ];
+    for (const [action, handler] of handlers) {
+      MediaSession.setActionHandler({ action }, handler).catch(ignoreError);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!current) return;
+    MediaSession.setMetadata({
+      title: current.title,
+      artist: current.artist,
+      album: current.album,
+      artwork: [{ src: coverArtUrl(current.coverArt, 512), sizes: "512x512" }],
+    }).catch(ignoreError);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceKey]);
+
+  useEffect(() => {
+    const playbackState = !current ? "none" : isPlaying ? "playing" : "paused";
+    MediaSession.setPlaybackState({ playbackState }).catch(ignoreError);
+  }, [current, isPlaying]);
+
+  const updatePositionState = useCallback(() => {
+    const audio = audioRef.current;
+    // Transcoded streams report an infinite duration; fall back to Navidrome's.
+    const total = audio && Number.isFinite(audio.duration) ? audio.duration : current?.duration;
+    if (!audio || !total) return;
+    MediaSession.setPositionState({
+      duration: total,
+      position: Math.min(audio.currentTime, total),
+      playbackRate: 1,
+    }).catch(ignoreError);
+  }, [current?.duration]);
+
+  useEffect(updatePositionState, [isPlaying, duration, updatePositionState]);
+
   const setVolume = useCallback((v: number) => {
     setVolumeState(Math.min(1, Math.max(0, v)));
   }, []);
@@ -338,6 +393,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           setDuration(audio.duration);
           if (inJam && jam) seekIfPossible(audio, expectedPosition());
         }}
+        onSeeked={updatePositionState}
         onPlay={() => setLocalPlaying(true)}
         onPause={() => setLocalPlaying(false)}
         onEnded={() => {

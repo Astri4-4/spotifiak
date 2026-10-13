@@ -1,11 +1,12 @@
 import md5 from "blueimp-md5";
+import { navidromeBase } from "@/lib/servers";
 
 const API_VERSION = "1.16.1";
 const CLIENT_NAME = "spotifion";
 const STORAGE_KEY = "spotifion.auth";
 
 export interface Credentials {
-  server: string; // kept for display only; requests always go through /rest (same-origin, proxied by nginx)
+  server: string; // kept for display only; requests go to navidromeBase() (see src/lib/servers.ts)
   username: string;
   salt: string;
   token: string;
@@ -103,7 +104,7 @@ export function authSearchParams(extra: Record<string, unknown> = {}): URLSearch
   return toSearchParams({ ...authParams(c), ...extra });
 }
 
-/** Builds a fully-qualified, same-origin Subsonic request URL (e.g. for <img>/<audio> src). */
+/** Builds a Subsonic request URL (e.g. for <img>/<audio> src). */
 export function buildUrl(
   endpoint: string,
   params: Record<string, unknown> = {},
@@ -112,7 +113,7 @@ export function buildUrl(
   const c = creds ?? loadCredentials();
   if (!c) throw new AuthError();
   const search = toSearchParams({ ...authParams(c), ...params });
-  return `/rest/${endpoint}?${search.toString()}`;
+  return `${navidromeBase()}/rest/${endpoint}?${search.toString()}`;
 }
 
 interface SubsonicResponseEnvelope {
@@ -134,7 +135,7 @@ export async function request<T = Record<string, unknown>>(
   if (!c) throw new AuthError();
 
   const search = toSearchParams({ ...authParams(c), ...params });
-  const res = await fetch(`/rest/${endpoint}?${search.toString()}`);
+  const res = await fetch(`${navidromeBase()}/rest/${endpoint}?${search.toString()}`);
 
   if (!res.ok) {
     throw new Error(`Subsonic request to ${endpoint} failed: HTTP ${res.status}`);

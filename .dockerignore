@@ -9,3 +9,6 @@ dist
 release
 build
 electron
+android
+ios
+assets

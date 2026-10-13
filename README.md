@@ -101,9 +101,38 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-`.github/workflows/release.yml` then builds the macOS, Windows and Linux installers (the app version is taken from the tag) and publishes them as a GitHub Release with auto-generated release notes. Tags with a suffix (e.g. `v1.1.0-beta.1`) are marked as pre-releases. The Docker workflow also runs on the tag and pushes the matching image.
+`.github/workflows/release.yml` then builds the macOS, Windows and Linux installers plus the Android APK and iOS IPA (the app version is taken from the tag) and publishes them as a GitHub Release with auto-generated release notes. Tags with a suffix (e.g. `v1.1.0-beta.1`) are marked as pre-releases. To check the builds without releasing anything, run the workflow by hand from **Actions → Release → Run workflow** on any branch; the files are then attached to the run as artifacts. The Docker workflow also runs on the tag and pushes the matching image.
 
 Builds are unsigned by default. To sign them, add these repository secrets and electron-builder will pick them up: `CSC_LINK` (base64 `.p12` certificate) and `CSC_KEY_PASSWORD`, plus `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` and `APPLE_TEAM_ID` to notarize the macOS app.
+
+## Mobile app (iOS / Android)
+
+The app is also wrapped for phones with [Capacitor](https://capacitorjs.com/) (`capacitor.config.ts`, native projects in `android/` and `ios/`). Each GitHub Release includes:
+
+- **Android** - `Spotifiak-<version>-android.apk`. Open it on your phone and allow installing from that source.
+- **iOS** - `Spotifiak-<version>-ios.ipa`, unsigned. Install it with [SideStore](https://sidestore.io/), [AltStore](https://altstore.io/) or [Sideloadly](https://sideloadly.io/) using your Apple ID. With a free Apple ID the app has to be re-signed every 7 days; SideStore/AltStore can do that automatically in the background.
+
+As in the desktop app, the login screen asks for the **Navidrome server** and an optional **Jam server** (the URL of a Spotifiak web deployment). Both must be reachable from the phone, as there's no proxy in between: API calls go through the phone's native HTTP stack (so Navidrome needs no CORS setup), and the Jam server answers cross-origin requests itself, so the web deployment has to run a version of the Docker image that includes that.
+
+Music keeps playing with the screen locked or the app in the background, with controls on the lock screen and in the notification shade (`@capgo/capacitor-media-session`; on Android it runs a media-playback foreground service while music plays). The same Media Session integration gives the web and desktop apps media-key support.
+
+Building locally needs Android Studio (Android) or Xcode (iOS):
+
+```bash
+npm run build && npx cap sync   # copy the web build into both native projects
+npx cap open android            # or: npx cap open ios
+```
+
+### Android signing
+
+Without a signing key, CI signs each APK with a new throwaway key, so Android refuses to install a new version over an old one (uninstall first, which logs you out). To make updates install normally, create a key once and add it as repository secrets:
+
+```bash
+keytool -genkeypair -v -keystore spotifiak.keystore -alias spotifiak -keyalg RSA -keysize 4096 -validity 10000
+base64 -i spotifiak.keystore | pbcopy   # paste as ANDROID_KEYSTORE_BASE64
+```
+
+plus `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` (`spotifiak`) and `ANDROID_KEY_PASSWORD`. Keep the keystore file safe: losing it means users have to reinstall.
 
 ## CI/CD
 

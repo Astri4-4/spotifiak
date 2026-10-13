@@ -343,6 +343,17 @@ function openEvents(req, res, session, username, clientId) {
 
 async function handle(req, res) {
   const url = new URL(req.url, "http://jam.local");
+  // The mobile app calls this server cross-origin. Any origin is fine: every
+  // request carries its own Navidrome credentials, and no cookies are used.
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  if (req.method === "OPTIONS") {
+    res.writeHead(204, {
+      "Access-Control-Allow-Methods": "GET, POST",
+      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Max-Age": "86400",
+    });
+    return res.end();
+  }
   // Unauthenticated health check for container/Kubernetes probes.
   if (url.pathname === "/jam-api/healthz") return json(res, 200, { ok: true, sessions: sessions.size });
   const match = url.pathname.match(/^\/jam-api\/sessions(?:\/([A-Z0-9]{6})(\/events|\/actions)?)?\/?$/);

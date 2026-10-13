@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useLocation, useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { SubsonicError } from "@/api/client";
-import { desktop, desktopErrorMessage } from "@/lib/desktop";
+import { getServerConfig, serversConfigurable, setServerConfig } from "@/lib/servers";
 
 export function Login() {
   const { login, isAuthenticated, isLoading } = useAuth();
@@ -11,14 +11,15 @@ export function Login() {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  // Desktop app only: which servers the local proxy forwards to.
+  // Desktop and mobile apps only: which servers to use.
   const [navidromeUrl, setNavidromeUrl] = useState("");
   const [jamUrl, setJamUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    desktop?.getConfig().then((config) => {
+    if (!serversConfigurable) return;
+    void getServerConfig().then((config) => {
       setNavidromeUrl(config.navidromeUrl);
       setJamUrl(config.jamUrl);
     });
@@ -33,11 +34,11 @@ export function Login() {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
-    if (desktop) {
+    if (serversConfigurable) {
       try {
-        await desktop.setConfig({ navidromeUrl, jamUrl });
+        await setServerConfig({ navidromeUrl, jamUrl });
       } catch (err) {
-        setError(desktopErrorMessage(err));
+        setError(err instanceof Error ? err.message : String(err));
         setSubmitting(false);
         return;
       }
@@ -75,7 +76,7 @@ export function Login() {
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {desktop && (
+          {serversConfigurable && (
             <>
               <label className="flex flex-col gap-2 text-sm font-semibold">
                 Navidrome server
@@ -106,7 +107,7 @@ export function Login() {
           <label className="flex flex-col gap-2 text-sm font-semibold">
             Username
             <input
-              autoFocus={!desktop}
+              autoFocus={!serversConfigurable}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="rounded-md border border-white/20 bg-transparent px-3 py-3 text-sm outline-none focus:border-white"

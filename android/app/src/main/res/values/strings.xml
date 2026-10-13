@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Spotifiak</string>
+    <string name="title_activity_main">Spotifiak</string>
+    <string name="package_name">fr.sachaguerin.spotifiak</string>
+    <string name="custom_url_scheme">fr.sachaguerin.spotifiak</string>
+</resources>

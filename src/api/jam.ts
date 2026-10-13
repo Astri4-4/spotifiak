@@ -1,10 +1,18 @@
 import { authSearchParams } from "./client";
+import { jamBase } from "@/lib/servers";
 import type { Child } from "@/types/subsonic";
 
-// Client for the Jam server (server/jam.mjs), reached same-origin under
-// /jam-api - proxied by nginx in production and by Vite in dev.
+// Client for the Jam server (server/jam.mjs), under /jam-api - same-origin
+// (proxied by nginx, Vite or the desktop app), or on the configured Jam
+// server in the mobile app.
 
-const BASE = "/jam-api/sessions";
+const NO_JAM_SERVER = "Jam needs a Jam server. Log out and set one on the login screen.";
+
+function sessionsUrl(): string {
+  const base = jamBase();
+  if (base === null) throw new JamError(503, NO_JAM_SERVER);
+  return `${base}/jam-api/sessions`;
+}
 
 export type JamTrack = Pick<
   Child,
@@ -67,9 +75,10 @@ export class JamError extends Error {
 }
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
+  const url = `${sessionsUrl()}${path}?${authSearchParams()}`;
   let res: Response;
   try {
-    res = await fetch(`${BASE}${path}?${authSearchParams()}`, init);
+    res = await fetch(url, init);
   } catch {
     throw new JamError(0, "Couldn't reach the Jam server.");
   }
@@ -98,7 +107,7 @@ export async function getJam(id: string): Promise<JamSnapshot | null> {
 }
 
 export function jamEventsUrl(id: string, clientId: string): string {
-  return `${BASE}/${encodeURIComponent(id)}/events?${authSearchParams({ clientId })}`;
+  return `${sessionsUrl()}/${encodeURIComponent(id)}/events?${authSearchParams({ clientId })}`;
 }
 
 export async function sendJamAction(id: string, action: JamAction): Promise<void> {

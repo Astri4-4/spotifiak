@@ -5,7 +5,7 @@ import { useJam } from "@/context/JamContext";
 import { coverArtUrl } from "@/api/subsonic";
 import { parseJamCode, type JamQueueItem } from "@/api/jam";
 import { Loading } from "@/components/Loading";
-import { desktop } from "@/lib/desktop";
+import { jamInviteOrigin } from "@/lib/servers";
 import { CheckIcon, CloseIcon, JamIcon } from "@/components/icons";
 
 export function Jam() {
@@ -281,11 +281,11 @@ function QueueRow({
 
 function InviteCard({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
-  // The desktop app's own origin is a local server, so invite people to the
-  // web deployment whose Jam server it uses instead.
-  const [origin, setOrigin] = useState(desktop ? "" : window.location.origin);
+  // The desktop and mobile apps' own origin isn't reachable by others, so
+  // invite people to the web deployment whose Jam server they use instead.
+  const [origin, setOrigin] = useState("");
   useEffect(() => {
-    desktop?.getConfig().then((config) => setOrigin(config.jamUrl));
+    void jamInviteOrigin().then(setOrigin);
   }, []);
   const link = `${origin}/jam/${code}`;
 

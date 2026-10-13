@@ -476,7 +476,8 @@ function DiscoverSettings() {
           className="rounded-md border border-white/20 bg-transparent px-3 py-3 text-sm font-normal outline-none focus:border-white"
         />
         <span className="text-xs font-normal text-spotify-gray">
-          Its download folder must be Navidrome's music folder. Only the Spotifiak server talks to it: keep it out of
+          As the Spotifiak server reaches it (in Kubernetes, e.g. http://deemix.media.svc.cluster.local:6595). Its
+          download folder must be Navidrome's music folder. Only the Spotifiak server talks to it: keep it out of
           reach of the internet, since deemix gives its Deezer login to anyone who asks. Leave empty to turn Discover off.
         </span>
       </label>

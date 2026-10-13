@@ -15,6 +15,9 @@
 //   POST /jam-api/discover/downloads        { type, id } - start a download
 //   GET  /jam-api/discover/downloads        this user's downloads and their progress
 //
+// Errors from deemix are sent as 503s, not 502s: Cloudflare (and others)
+// replace 502 bodies with their own page, hiding the explanation.
+//
 // The deemix address comes from Settings (saved in $JAM_DATA_DIR, when set)
 // or the DEEMIX_URL environment variable. The ARL is the one deemix itself
 // keeps (single-user mode), or DEEMIX_ARL.
@@ -89,8 +92,9 @@ async function deemix(pathAndQuery, { method = "GET", body } = {}) {
       signal: AbortSignal.timeout(DEEMIX_TIMEOUT_MS),
     });
   } catch (err) {
-    console.error(`[discover] could not reach deemix at ${deemixUrl}:`, err.message);
-    throw new DiscoverError(502, "Couldn't reach the download server.");
+    // e.g. ENOTFOUND: a name only the home network knows (use the cluster's name for it instead).
+    console.error(`[discover] could not reach deemix at ${deemixUrl}: ${err.message} (${err.cause?.code ?? err.cause?.message ?? "no details"})`);
+    throw new DiscoverError(503, "The server couldn't reach the download server (deemix).");
   }
   const setCookie = res.headers.get("set-cookie")?.match(/connect\.sid=[^;]+/);
   if (setCookie && setCookie[0] !== cookie) {
@@ -98,7 +102,7 @@ async function deemix(pathAndQuery, { method = "GET", body } = {}) {
     cookie = setCookie[0];
     loggedIn = false;
   }
-  if (!res.ok) throw new DiscoverError(502, `The download server answered HTTP ${res.status}.`);
+  if (!res.ok) throw new DiscoverError(503, `The download server answered HTTP ${res.status}.`);
   return res.json();
 }
 
@@ -280,7 +284,7 @@ async function route(req, res, url, username, navidromeUrl, readJson) {
     }
     if (!added?.result) {
       if (added?.errid === "AlreadyInQueue") throw new DiscoverError(409, "That's already being downloaded.");
-      throw new DiscoverError(502, "The download server couldn't add that download.");
+      throw new DiscoverError(503, "The download server couldn't add that download.");
     }
     const items = (Array.isArray(added.data?.obj) ? added.data.obj : [added.data?.obj]).filter(Boolean).map(cleanDownload);
     for (const item of items) downloads.set(item.uuid, { username, item });

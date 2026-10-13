@@ -35,10 +35,12 @@ spec:
             - name: NAVIDROME_URL
               value: https://navidrome.sachaguerin.fr
             # Discover: the deemix server to download through (empty turns
-            # it off). With the read-only root filesystem, a deemix server set
-            # from the app's Settings only lasts until the pod restarts.
+            # it off), as reachable from this pod: in the cluster, its
+            # Service's name (home-network DNS names don't resolve here).
+            # With the read-only root filesystem, a deemix server set from
+            # the app's Settings only lasts until the pod restarts.
             - name: DEEMIX_URL
-              value: http://deemix.home.sachaguerin.fr
+              value: http://deemix.media.svc.cluster.local:6595
           ports:
             - name: http
               containerPort: 8080

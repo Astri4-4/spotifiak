@@ -125,17 +125,29 @@ interface SubsonicResponseEnvelope {
   };
 }
 
-/** Low-level call: GETs a Subsonic endpoint and unwraps the envelope, throwing on failure. */
+/**
+ * Low-level call: GETs a Subsonic endpoint and unwraps the envelope, throwing
+ * on failure. `post` sends `params` as a form instead, for long lists that
+ * would make the URL too long for proxies (Navidrome accepts both).
+ */
 export async function request<T = Record<string, unknown>>(
   endpoint: string,
   params: Record<string, unknown> = {},
   creds?: Credentials | null,
+  { post = false }: { post?: boolean } = {},
 ): Promise<T> {
   const c = creds ?? loadCredentials();
   if (!c) throw new AuthError();
 
-  const search = toSearchParams({ ...authParams(c), ...params });
-  const res = await fetch(`${navidromeBase()}/rest/${endpoint}?${search.toString()}`);
+  const url = `${navidromeBase()}/rest/${endpoint}`;
+  const res = post
+    ? await fetch(`${url}?${toSearchParams(authParams(c)).toString()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        // A string, which the mobile apps' native HTTP sends as is.
+        body: toSearchParams(params).toString(),
+      })
+    : await fetch(`${url}?${toSearchParams({ ...authParams(c), ...params }).toString()}`);
 
   if (!res.ok) {
     throw new Error(`Subsonic request to ${endpoint} failed: HTTP ${res.status}`);

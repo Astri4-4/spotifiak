@@ -1,7 +1,5 @@
-import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
-import { getPlaylists } from "@/api/subsonic";
-import type { Playlist } from "@/types/subsonic";
+import { usePlaylists } from "@/lib/playlists";
 import { HeartIcon, HomeIcon, JamIcon, LibraryIcon, PlusIcon, SearchIcon } from "./icons";
 import { useJam } from "@/context/JamContext";
 import { CreatePlaylistButton } from "./CreatePlaylistButton";
@@ -12,14 +10,8 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   }`;
 
 export function Sidebar() {
-  const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const playlists = usePlaylists() ?? [];
   const { jamId } = useJam();
-
-  const refresh = () => {
-    getPlaylists().then(setPlaylists).catch(() => void 0);
-  };
-
-  useEffect(refresh, []);
 
   return (
     <aside className="hidden h-full w-56 flex-shrink-0 flex-col gap-2 md:flex lg:w-64 xl:w-72">
@@ -47,7 +39,7 @@ export function Sidebar() {
             <LibraryIcon className="h-6 w-6 fill-current" />
             Your Library
           </NavLink>
-          <CreatePlaylistButton onCreated={refresh}>
+          <CreatePlaylistButton>
             <span className="rounded-full p-1.5 text-spotify-gray hover:bg-white/10 hover:text-white">
               <PlusIcon className="h-5 w-5" />
             </span>

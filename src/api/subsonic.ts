@@ -101,14 +101,20 @@ export async function deletePlaylist(id: string): Promise<void> {
 
 export async function updatePlaylist(
   playlistId: string,
-  options: { songIdToAdd?: string[]; songIndexToRemove?: number[]; name?: string } = {},
+  options: { songIdToAdd?: string[]; songIndexToRemove?: number[]; name?: string; comment?: string } = {},
 ): Promise<void> {
   await request("updatePlaylist", {
     playlistId,
     name: options.name,
+    comment: options.comment,
     songIdToAdd: options.songIdToAdd,
     songIndexToRemove: options.songIndexToRemove,
   });
+}
+
+/** Replaces a playlist's songs, e.g. to reorder them (Subsonic has no "move"). */
+export async function setPlaylistSongs(playlistId: string, songIds: string[]): Promise<void> {
+  await request("createPlaylist", { playlistId, songId: songIds }, null, { post: true });
 }
 
 export async function star(options: {

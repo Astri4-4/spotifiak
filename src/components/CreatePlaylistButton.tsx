@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPlaylist } from "@/api/subsonic";
+import { refreshPlaylists } from "@/lib/playlists";
 
 interface CreatePlaylistButtonProps {
   children: ReactNode;
@@ -21,6 +22,7 @@ export function CreatePlaylistButton({ children, onCreated }: CreatePlaylistButt
       const playlist = await createPlaylist(name.trim());
       setOpen(false);
       setName("My Playlist");
+      refreshPlaylists();
       onCreated?.();
       navigate(`/playlist/${playlist.id}`);
     } catch {

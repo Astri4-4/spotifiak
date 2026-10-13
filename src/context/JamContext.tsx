@@ -13,6 +13,7 @@ import {
   createJam,
   getJam,
   jamEventsUrl,
+  jamIsCrossOrigin,
   sendJamAction,
   type JamAction,
   type JamSnapshot,
@@ -21,6 +22,8 @@ import {
 
 const SESSION_KEY = "spotifion.jam.session";
 const CLIENT_KEY = "spotifion.jam.client";
+/** Refused event streams in a row before telling the user rather than just retrying. */
+const MAX_SILENT_FAILURES = 3;
 
 type JamStatus = "idle" | "connecting" | "live" | "reconnecting";
 
@@ -114,10 +117,14 @@ export function JamProvider({ children }: { children: ReactNode }) {
     let es: EventSource | null = null;
     let retryTimer: number | undefined;
     let disposed = false;
+    // Streams that failed in a row; reset by any state update.
+    let failures = 0;
+    let warned = false;
 
     const onSnapshot = (e: MessageEvent<string>) => {
       const snap = JSON.parse(e.data) as JamSnapshot;
       offsetRef.current = snap.now - Date.now();
+      failures = 0;
       setJam(snap.state);
       setStatus("live");
     };
@@ -136,11 +143,25 @@ export function JamProvider({ children }: { children: ReactNode }) {
         // good on an error response - e.g. because the Jam no longer exists.
         if (es?.readyState !== EventSource.CLOSED) return;
         es.close();
+        failures++;
         getJam(jamId)
           .then((snap) => {
             if (disposed) return;
-            if (snap) retryTimer = window.setTimeout(connect, 3000);
-            else finish("This Jam has ended.");
+            if (!snap) {
+              finish("This Jam has ended.");
+              return;
+            }
+            // The Jam exists but its event stream keeps being refused: say
+            // why instead of silently reconnecting forever.
+            if (failures >= MAX_SILENT_FAILURES && !warned) {
+              warned = true;
+              setNotice(
+                jamIsCrossOrigin()
+                  ? "Can't get live updates from the Jam server. It's probably too old for the mobile app: update it to the latest Docker image."
+                  : "Can't get live updates from the Jam server. Retrying...",
+              );
+            }
+            retryTimer = window.setTimeout(connect, 3000);
           })
           .catch(() => {
             if (!disposed) retryTimer = window.setTimeout(connect, 5000);

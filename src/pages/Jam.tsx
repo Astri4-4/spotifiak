@@ -11,8 +11,30 @@ import { CheckIcon, CloseIcon, JamIcon } from "@/components/icons";
 export function Jam() {
   const { jamId, jam } = useJam();
   if (!jamId) return <StartJam />;
-  if (!jam) return <Loading label="Joining the Jam..." />;
+  if (!jam) return <JoiningJam />;
   return <JamSession />;
+}
+
+/** Waiting for the first state; explains (and offers a way out) if the event stream keeps failing. */
+function JoiningJam() {
+  const { notice, leaveJam } = useJam();
+  return (
+    <div>
+      <Loading label="Joining the Jam..." />
+      {notice && (
+        <div className="mx-auto flex max-w-md flex-col items-center gap-4 text-center">
+          <p className="rounded-md bg-white/10 px-4 py-2 text-sm">{notice}</p>
+          <button
+            type="button"
+            onClick={leaveJam}
+            className="rounded-full border border-white/40 px-5 py-2 text-sm font-bold hover:border-white"
+          >
+            Leave Jam
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function StartJam() {

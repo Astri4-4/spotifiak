@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { PlayIcon } from "./icons";
+import { PlayIcon, ShuffleIcon } from "./icons";
 
 interface DetailHeaderProps {
   /** Cover image, or any square visual (e.g. the Liked Songs gradient). */
@@ -47,6 +47,29 @@ export function PlayButton({
       aria-label={label}
     >
       <PlayIcon className="h-5 w-5 fill-current pl-0.5 sm:h-6 sm:w-6 sm:pl-1" />
+    </button>
+  );
+}
+
+export function ShufflePlayButton({
+  onClick,
+  disabled,
+  label,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="flex h-10 w-10 flex-shrink-0 items-center justify-center text-spotify-gray transition hover:scale-105 hover:text-white disabled:opacity-50"
+      aria-label={label}
+      title={label}
+    >
+      <ShuffleIcon className="h-7 w-7 sm:h-8 sm:w-8" />
     </button>
   );
 }

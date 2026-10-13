@@ -26,6 +26,15 @@ See what the other people on your Navidrome server are listening to, like Spotif
 
 It uses Navidrome's own "now playing" list (Subsonic `getNowPlaying`), so it needs no extra server and also shows people using other Navidrome apps. To stop appearing in it, turn off **Settings → Privacy → Share what I'm listening to**: the app then stops sending "now playing" (your plays are still saved to your history). Other apps you use have their own behaviour.
 
+## Discover (download new music)
+
+Turn on **Discover** in Search to search Deezer instead of your library: listen to 30-second previews and download songs or whole albums into your library, through your [deemix](https://github.com/bambanah/deemix) server. Downloads show their progress, and appear in your library once Navidrome has picked them up (the app asks Navidrome to rescan when it can - admins only - otherwise Navidrome's own file watcher or scheduled scan finds them).
+
+- deemix must download into Navidrome's music folder, and be logged in to Deezer (its single-user mode, which keeps the ARL; or set `DEEMIX_ARL` on the Spotifiak server).
+- The Spotifiak server is the gateway: `server/discover.mjs`, in the Jam server, is the only thing that talks to deemix. Apps only get search results, "download this" and download progress, and only for signed-in Navidrome users. deemix's API hands its Deezer login to anyone who asks and has no accounts of its own, so keep deemix itself out of reach of the internet.
+- Set the deemix server with `DEEMIX_URL` on the Spotifiak server, or from **Settings → Discover** (Navidrome admins only; saved in `JAM_DATA_DIR`, `/opt/jam/data` in the Docker image - mount a volume there to keep it). Leave it empty to turn Discover off.
+- The desktop and mobile apps use the Discover of their Jam server.
+
 ## Jam
 
 Open **Jam** in the sidebar (or the tab bar on mobile) and start one, then share the invite link or 6-character code. Guests log in with their own account on the same Navidrome server.

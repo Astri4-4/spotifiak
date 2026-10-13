@@ -23,9 +23,15 @@
 //   GET  /jam-api/me/events?deviceId&name&platform   SSE: devices + playback
 //   POST /jam-api/me/state?deviceId        { state, claim? } from the playing device
 //   POST /jam-api/me/commands?deviceId     { target, command } - see COMMANDS
+//
+// And it's the gateway to deemix for Discover (searching Deezer and
+// downloading into the library) - see discover.mjs.
+//
+//   /jam-api/discover/...
 
 import http from "node:http";
 import crypto from "node:crypto";
+import { handleDiscover } from "./discover.mjs";
 
 const PORT = Number(process.env.JAM_PORT || 3001);
 const HOST = process.env.JAM_HOST || "127.0.0.1";
@@ -522,6 +528,12 @@ async function handle(req, res) {
   }
   // Unauthenticated health check for container/Kubernetes probes.
   if (url.pathname === "/jam-api/healthz") return json(res, 200, { ok: true, sessions: sessions.size });
+
+  if (url.pathname.startsWith("/jam-api/discover/")) {
+    const username = await authenticate(url.searchParams);
+    if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });
+    return handleDiscover(req, res, url, username, { navidromeUrl: NAVIDROME_URL, readJson });
+  }
 
   const deviceRoute = url.pathname.match(/^\/jam-api\/me\/(events|state|commands)\/?$/);
   if (deviceRoute) {

@@ -23,14 +23,20 @@ FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
 # Kubernetes Deployment.
 ENV NAVIDROME_URL="https://navidrome.sachaguerin.fr"
 
+# Optional: the deemix server Discover downloads through (see
+# server/discover.mjs). Admins can also set it from Settings, which is saved
+# in JAM_DATA_DIR - mount a volume there to keep it across restarts.
+ENV DEEMIX_URL=""
+ENV JAM_DATA_DIR=/opt/jam/data
+
 # Node runs the Jam server (shared listening sessions) next to nginx.
 USER root
-RUN apk add --no-cache nodejs
+RUN apk add --no-cache nodejs && mkdir -p /opt/jam/data && chown 101:101 /opt/jam/data
 USER 101
 
 COPY docker/nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --chmod=755 docker/40-start-jam-server.sh /docker-entrypoint.d/40-start-jam-server.sh
-COPY server/jam.mjs /opt/jam/jam.mjs
+COPY server/jam.mjs server/discover.mjs /opt/jam/
 COPY --from=build /app/dist /usr/share/nginx/html
 
 EXPOSE 8080

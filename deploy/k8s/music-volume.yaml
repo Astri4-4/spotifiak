@@ -1,0 +1,48 @@
+# The music share, read-write, for "Remove duplicates" (server/duplicates.mjs),
+# which moves duplicate songs into its hidden .spotifion-trash folder.
+#
+# A second PersistentVolume for the same SMB share Navidrome and deemix use
+# (media/music): a PersistentVolumeClaim only works in its own namespace.
+# Adjust the source, credentials Secret and mount options to match yours;
+# the Secret can stay in the namespace it's already in.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: music-smb-spotifion
+spec:
+  capacity:
+    storage: 1Ti
+  accessModes: ["ReadWriteMany"]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  mountOptions:
+    - dir_mode=0775
+    - file_mode=0664
+    - uid=1000
+    - gid=1000
+    - vers=3.0
+    - noperm
+  csi:
+    driver: smb.csi.k8s.io
+    # Must differ from the other PersistentVolume's volumeHandle.
+    volumeHandle: truenas-musique-spotifion
+    volumeAttributes:
+      source: //192.168.10.33/Musique
+    nodeStageSecretRef:
+      name: smb-music-creds
+      namespace: media
+  claimRef:
+    name: music
+    namespace: spotifion
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: music
+spec:
+  accessModes: ["ReadWriteMany"]
+  storageClassName: ""
+  volumeName: music-smb-spotifion
+  resources:
+    requests:
+      storage: 1Ti

@@ -35,6 +35,16 @@ Turn on **Discover** in Search to search Deezer instead of your library: listen 
 - Set the deemix server with `DEEMIX_URL` on the Spotifiak server, or from **Settings → Discover** (Navidrome admins only; saved in `JAM_DATA_DIR`, `/opt/jam/data` in the Docker image - mount a volume there to keep it). Leave it empty to turn Discover off.
 - The desktop and mobile apps use the Discover of their Jam server.
 
+## Remove duplicates
+
+Albums and playlists have a **Remove duplicates** button: it finds the other files of their songs in your library (same title and artist, about the same length) and keeps the best copy - the album track (named `01 - Title`, as deemix and Lidarr do), else the single (at the top of deemix's download folder), else one in a downloaded playlist's folder, then the highest bitrate. The others are moved, for everyone, into the music folder's hidden `.spotifion-trash/<date>/` (Navidrome ignores it): nothing is deleted, so move files back to undo, and empty it when sure. It shows what it would move first. Afterwards, your own playlists are pointed at the copies kept (Navidrome only lets owners change a playlist; others' playlists keep pointing at the moved file).
+
+It needs:
+
+- The music folder mounted read-write in the Spotifiak container, at `MUSIC_DIR` (see `docker-compose.yml`, or `deploy/k8s/music-volume.yaml` for an SMB share on Kubernetes). Without it, the button doesn't show.
+- `DEEMIX_FOLDER`: deemix's download folder within the music folder, if it's a subfolder (e.g. `Deezer`), so its singles are recognised.
+- Navidrome reporting real file paths, so its songs can be matched to files: `ND_SUBSONIC_DEFAULTREPORTREALPATH=true` on Navidrome. If Navidrome reports the path as absolute and its music folder isn't `/music`, set `NAVIDROME_MUSIC_DIR` to it.
+
 ## Jam
 
 Open **Jam** in the sidebar (or the tab bar on mobile) and start one, then share the invite link or 6-character code. Guests log in with their own account on the same Navidrome server.

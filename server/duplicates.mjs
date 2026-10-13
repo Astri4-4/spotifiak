@@ -29,6 +29,12 @@ const TRASH = ".spotifion-trash";
 const SEARCH_CONCURRENCY = 6;
 const MAX_DURATION_DIFF = 2; // seconds
 const NAVIDROME_TIMEOUT_MS = 15_000;
+/**
+ * The client name Navidrome sees. It keeps a "player" per user and client,
+ * and ND_SUBSONIC_DEFAULTREPORTREALPATH only applies to players created
+ * after it's set: a name of our own gets new players, with real paths on.
+ */
+const CLIENT = "spotifion-files";
 
 /** One clean-up at a time: they move files around. */
 let busy = false;
@@ -63,7 +69,7 @@ function subsonic(navidromeUrl, auth, endpoint, params = {}) {
     t: auth.get("t"),
     s: auth.get("s"),
     v: "1.16.1",
-    c: "spotifion-jam",
+    c: CLIENT,
     f: "json",
     ...params,
   });
@@ -160,7 +166,7 @@ async function plan(navidromeUrl, auth, kind, id) {
   if (songs.length && songs.every((s) => fileOf(s) === null)) {
     throw new DuplicatesError(
       409,
-      "Navidrome doesn't report its songs' real files. Set ND_SUBSONIC_DEFAULTREPORTREALPATH=true on it.",
+      `Navidrome doesn't report its songs' real files. Set ND_SUBSONIC_DEFAULTREPORTREALPATH=true on it, or turn on "Report real path" for your "${CLIENT}" player in Navidrome (Settings, Players).`,
     );
   }
   // A song can be in a playlist twice; look it up once.

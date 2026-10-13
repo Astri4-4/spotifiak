@@ -1,20 +1,35 @@
+/** A theme color from src/index.css, as RGB channels so opacity modifiers (bg-white/10) work. */
+const themed = (name) => `rgb(var(--color-${name}) / <alpha-value>)`;
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      // Every color follows the chosen theme (see src/lib/theme.ts). In the
+      // dark theme they keep their literal meaning; in the light one `white`
+      // is the text color and `black` the deepest background, so overlays
+      // like bg-white/10 still contrast with the page.
       colors: {
+        white: themed("fg"),
+        black: themed("bg"),
+        // For literal white that must not change with the theme (e.g. on a
+        // fixed-color gradient).
+        "pure-white": "#ffffff",
         spotify: {
-          green: "#1DB954",
-          "green-bright": "#1ED760",
-          black: "#000000",
-          "base-black": "#121212",
-          "elevated-black": "#181818",
-          "highlight-black": "#282828",
-          "press-black": "#0a0a0a",
-          gray: "#B3B3B3",
-          "gray-subdued": "#6a6a6a",
+          // The accent color: green unless the user picks another one.
+          green: themed("accent"),
+          "green-bright": themed("accent-bright"),
+          black: themed("bg"),
+          "base-black": themed("base"),
+          "elevated-black": themed("elevated"),
+          "highlight-black": themed("highlight"),
+          "press-black": themed("press"),
+          gray: themed("gray"),
+          "gray-subdued": themed("gray-subdued"),
         },
+        // Text/icons on top of the accent color.
+        "on-accent": themed("on-accent"),
       },
       fontFamily: {
         sans: [

@@ -28,7 +28,7 @@ interface LibraryItem {
 
 const likedSongsArt = (
   <span className="flex h-full w-full items-center justify-center rounded bg-gradient-to-br from-indigo-700 to-blue-300">
-    <HeartIcon filled className="h-1/3 w-1/3 text-white" />
+    <HeartIcon filled className="h-1/3 w-1/3 text-pure-white" />
   </span>
 );
 

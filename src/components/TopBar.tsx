@@ -1,13 +1,12 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { LogoutIcon, SearchIcon } from "./icons";
+import { SearchIcon } from "./icons";
 
 export function TopBar() {
-  const { username, logout } = useAuth();
+  const { username } = useAuth();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
-  const [menuOpen, setMenuOpen] = useState(false);
 
   function handleSearchSubmit(e: FormEvent) {
     e.preventDefault();
@@ -31,31 +30,14 @@ export function TopBar() {
         </div>
       </form>
 
-      <div className="relative flex-shrink-0">
-        <button
-          type="button"
-          onClick={() => setMenuOpen((o) => !o)}
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-spotify-gray-subdued font-bold text-black"
-        >
-          {username?.[0]?.toUpperCase() ?? "?"}
-        </button>
-        {menuOpen && (
-          <>
-            <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-            <div className="absolute right-0 z-20 mt-2 w-48 rounded-md bg-spotify-highlight-black py-1 shadow-xl">
-              <div className="truncate px-4 py-2 text-sm text-spotify-gray">{username}</div>
-              <button
-                type="button"
-                onClick={logout}
-                className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-white/10"
-              >
-                <LogoutIcon className="h-4 w-4" />
-                Log out
-              </button>
-            </div>
-          </>
-        )}
-      </div>
+      <Link
+        to="/settings"
+        aria-label="Settings"
+        title="Settings"
+        className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-white/20 font-bold text-white transition hover:scale-105"
+      >
+        {username?.[0]?.toUpperCase() ?? "?"}
+      </Link>
     </header>
   );
 }

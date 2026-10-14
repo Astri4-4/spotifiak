@@ -236,9 +236,13 @@ export function LocalPlayerProvider({ children }: { children: ReactNode }) {
     (tracks: Child[], startIndex = 0, options?: PlayQueueOptions) => {
       if (inJam) {
         // In a Jam, "play" means play it for everyone (if allowed) - otherwise
-        // it's queued for the group, like Spotify.
+        // it's queued for the group, like Spotify. Several tracks are a
+        // playlist or album: it plays when nobody has added a song, so a
+        // guest's goes after everything else.
         const toSend = tracks.slice(startIndex).map(toJamTrack);
-        if (toSend.length) void act({ type: canControl ? "playNow" : "add", tracks: toSend });
+        if (!toSend.length) return;
+        if (canControl) void act({ type: "playNow", tracks: toSend });
+        else void act({ type: "add", tracks: toSend, fallback: toSend.length > 1 });
         return;
       }
       setLocalQueue(tracks);

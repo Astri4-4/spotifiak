@@ -242,6 +242,9 @@ function ProfilePictureButtons({ username }: { username: string }) {
       </div>
       {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
     </div>
+  );
+}
+
 function OnlineLyricsToggle() {
   const online = useOnlineLyrics();
   return (

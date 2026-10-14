@@ -31,13 +31,12 @@
 //
 // And it keeps each person's hidden duplicate songs - see hidden.mjs.
 //
-//   /jam-api/duplicates/...
+//   /jam-api/hidden/...
 //
 // And it keeps the weekly scoreboard: who listened the most, and the artists
 // friends have in common - see scoreboard.mjs.
 //
 //   /jam-api/scoreboard/...
-//   /jam-api/hidden/...
 //
 // And it keeps Mixes, playlists blended from several people's top songs -
 // see mixes.mjs.
@@ -56,7 +55,6 @@
 import http from "node:http";
 import crypto from "node:crypto";
 import { handleDiscover } from "./discover.mjs";
-import { handleDuplicates } from "./duplicates.mjs";
 import { handleScoreboard } from "./scoreboard.mjs";
 import { handleHidden } from "./hidden.mjs";
 import { handleMixes, mixForInvite } from "./mixes.mjs";

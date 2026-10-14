@@ -206,6 +206,12 @@ function getMix(id) {
   return mix;
 }
 
+/** What an invite to this mix shows, or null if it's gone (for invites.mjs). */
+export function mixForInvite(id) {
+  const mix = mixes.get(id);
+  return mix ? { name: mix.name, members: Object.keys(mix.members) } : null;
+}
+
 function requireMember(mix, username) {
   if (!mix.members[username]) throw new MixError(403, "You're not in this mix.");
 }

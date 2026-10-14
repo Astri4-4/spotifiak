@@ -6,6 +6,7 @@ import { coverArtUrl } from "@/api/subsonic";
 import { parseJamCode, type JamQueueItem } from "@/api/jam";
 import { Loading } from "@/components/Loading";
 import { jamInviteOrigin } from "@/lib/servers";
+import { InviteFriends } from "@/components/InviteFriends";
 import { CheckIcon, CloseIcon, DragHandleIcon, JamIcon } from "@/components/icons";
 import { Avatar } from "@/components/Avatar";
 import { useDragReorder } from "@/lib/useDragReorder";
@@ -185,7 +186,7 @@ function JamSession({ panel }: { panel: boolean }) {
       )}
 
       <div className={`grid gap-4 ${panel ? "" : "lg:grid-cols-2"}`}>
-        <InviteCard code={jam.id} panel={panel} />
+        <InviteCard code={jam.id} members={[jam.host, ...jam.members.map((m) => m.username)]} panel={panel} />
 
         <section className="rounded-lg bg-white/5 p-4 sm:p-5">
           <h2 className="mb-3 font-bold">Who's here</h2>
@@ -384,7 +385,7 @@ function QueueRow({
   );
 }
 
-function InviteCard({ code, panel }: { code: string; panel: boolean }) {
+function InviteCard({ code, members, panel }: { code: string; members: string[]; panel: boolean }) {
   const [copied, setCopied] = useState(false);
   // The desktop and mobile apps' own origin isn't reachable by others, so
   // invite people to the web deployment whose Jam server they use instead.
@@ -407,7 +408,8 @@ function InviteCard({ code, panel }: { code: string; panel: boolean }) {
   return (
     <section className="rounded-lg bg-white/5 p-4 sm:p-5">
       <h2 className="mb-3 font-bold">Invite friends</h2>
-      <p className="mb-1 text-xs uppercase tracking-wide text-spotify-gray">Jam code</p>
+      <InviteFriends kind="jam" code={code} members={members} />
+      <p className="mb-1 mt-4 text-xs uppercase tracking-wide text-spotify-gray">Or share the Jam code</p>
       <p className="mb-4 font-mono text-3xl font-bold tracking-[0.3em]">{code}</p>
       <div className={`flex flex-col gap-2 ${panel ? "" : "sm:flex-row"}`}>
         <input

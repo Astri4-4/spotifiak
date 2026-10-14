@@ -6,10 +6,12 @@ import type {
   ArtistWithAlbumsID3,
   Child,
   IndexID3,
+  LyricsResult,
   NowPlayingEntry,
   Playlist,
   PlaylistWithSongs,
   SearchResult3,
+  StructuredLyrics,
 } from "@/types/subsonic";
 
 /** Verifies the given (or stored) credentials actually work. Throws SubsonicError/AuthError if not. */
@@ -156,6 +158,25 @@ export async function startScan(): Promise<void> {
 
 export async function scrobble(id: string, submission = true): Promise<void> {
   await request("scrobble", { id, submission });
+}
+
+/**
+ * A song's lyrics from its tags or .lrc file (OpenSubsonic; Navidrome 0.52+).
+ * Throws on servers without the extension.
+ */
+export async function getLyricsBySongId(id: string): Promise<StructuredLyrics[]> {
+  const res = await request<{
+    "subsonic-response": { lyricsList?: { structuredLyrics?: StructuredLyrics[] } };
+  }>("getLyricsBySongId", { id });
+  return res["subsonic-response"].lyricsList?.structuredLyrics ?? [];
+}
+
+/** Plain-text lyrics, looked up by artist and title (the original Subsonic call). */
+export async function getLyrics(artist: string | undefined, title: string): Promise<LyricsResult | null> {
+  const res = await request<{
+    "subsonic-response": { lyrics?: LyricsResult };
+  }>("getLyrics", { artist, title });
+  return res["subsonic-response"].lyrics ?? null;
 }
 
 /** Builds an <img> src for cover art. Pass undefined/null coverArt to get a stable placeholder. */

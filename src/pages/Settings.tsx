@@ -5,6 +5,7 @@ import { useJam } from "@/context/JamContext";
 import { useConnect } from "@/context/PlayerContext";
 import { defaultDeviceName } from "@/lib/device";
 import { setShareListening, useShareListening } from "@/lib/sharing";
+import { setOnlineLyrics, useOnlineLyrics } from "@/lib/lyrics";
 import { SubsonicError } from "@/api/client";
 import { ping } from "@/api/subsonic";
 import { checkJamServer } from "@/api/jam";
@@ -67,6 +68,7 @@ export function Settings() {
 
       <Section title="Privacy">
         <ShareListeningToggle />
+        <OnlineLyricsToggle />
       </Section>
 
       <Section title="Appearance">
@@ -240,6 +242,29 @@ function ProfilePictureButtons({ username }: { username: string }) {
       </div>
       {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
     </div>
+function OnlineLyricsToggle() {
+  const online = useOnlineLyrics();
+  return (
+    <label className="mt-4 flex cursor-pointer items-center justify-between gap-4">
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold">Find lyrics online</span>
+        <span className="block text-xs text-spotify-gray">
+          When your server has no synced lyrics for a song, look them up on LRCLIB (lrclib.net), which is sent the
+          song's title, artist and album.
+        </span>
+      </span>
+      <input
+        type="checkbox"
+        role="switch"
+        checked={online}
+        onChange={(e) => setOnlineLyrics(e.target.checked)}
+        className="peer sr-only"
+      />
+      <span
+        aria-hidden
+        className="relative h-6 w-11 flex-shrink-0 rounded-full bg-white/30 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-pure-white after:shadow after:transition peer-checked:bg-spotify-green peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-white"
+      />
+    </label>
   );
 }
 

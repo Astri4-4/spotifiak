@@ -2,6 +2,7 @@ import { useRef, useState, type TouchEvent } from "react";
 import { Link } from "react-router-dom";
 import { useConnect, usePlayer } from "@/context/PlayerContext";
 import { DevicePicker } from "./DevicePicker";
+import { LyricsView } from "./LyricsView";
 import { useJam } from "@/context/JamContext";
 import { coverArtUrl } from "@/api/subsonic";
 import { formatDuration } from "@/lib/format";
@@ -12,6 +13,7 @@ import {
   ChevronDownIcon,
   HeartIcon,
   JamIcon,
+  LyricsIcon,
   MoreIcon,
   PauseIcon,
   PlayIcon,
@@ -56,6 +58,8 @@ export function NowPlayingSheet() {
   // Swipe down to close: follow the finger, then close or spring back.
   const dragStartRef = useRef<number | null>(null);
   const [dragY, setDragY] = useState(0);
+  // Lyrics take the cover's place; they stay on from song to song until turned off.
+  const [showLyrics, setShowLyrics] = useState(false);
 
   if (!isOpen || !current) return null;
 
@@ -74,6 +78,7 @@ export function NowPlayingSheet() {
     if (dragY > DISMISS_DISTANCE) close();
     setDragY(0);
   }
+  const dragHandlers = { onTouchStart, onTouchMove, onTouchEnd };
 
   return (
     <div
@@ -95,9 +100,9 @@ export function NowPlayingSheet() {
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/10 via-black/50 to-black" />
 
       <div className="relative flex min-h-0 flex-1 flex-col px-6 pb-[calc(var(--safe-bottom)+1.5rem)] pt-[calc(var(--safe-top)+0.5rem)]">
-        {/* Header and cover are the drag handle; the controls below stay tappable. */}
-        <div className="flex min-h-0 flex-1 flex-col" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
-          <div className="flex items-center justify-between gap-2">
+        {/* Header and cover are the drag handle; the controls below stay tappable, and lyrics scroll. */}
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex items-center justify-between gap-2" {...dragHandlers}>
             <button type="button" onClick={close} aria-label="Close" className="-ml-2 flex h-11 w-11 items-center justify-center">
               <ChevronDownIcon className="h-7 w-7" />
             </button>
@@ -128,13 +133,19 @@ export function NowPlayingSheet() {
             )}
           </div>
 
-          <div className="flex min-h-0 flex-1 items-center justify-center py-6">
-            <img
-              src={coverArtUrl(current.coverArt, 600)}
-              alt=""
-              className="aspect-square max-h-full w-full max-w-md rounded-lg object-cover shadow-2xl"
-            />
-          </div>
+          {showLyrics ? (
+            <div className="flex min-h-0 flex-1 flex-col py-4">
+              <LyricsView track={current} />
+            </div>
+          ) : (
+            <div className="flex min-h-0 flex-1 items-center justify-center py-6" {...dragHandlers}>
+              <img
+                src={coverArtUrl(current.coverArt, 600)}
+                alt=""
+                className="aspect-square max-h-full w-full max-w-md rounded-lg object-cover shadow-2xl"
+              />
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-4">
@@ -236,10 +247,19 @@ export function NowPlayingSheet() {
         <div className="mt-4 flex min-h-[1.5rem] items-center">
           <DevicePicker label className="max-w-full" />
           {!remoteDevice && <span className="ml-2 truncate text-xs text-white/60">{thisDevice.name}</span>}
+          <button
+            type="button"
+            onClick={() => setShowLyrics((v) => !v)}
+            aria-label={showLyrics ? "Hide lyrics" : "Show lyrics"}
+            aria-pressed={showLyrics}
+            className={`ml-auto flex h-11 w-11 flex-shrink-0 items-center justify-center ${showLyrics ? "text-spotify-green" : "text-white"}`}
+          >
+            <LyricsIcon className="h-6 w-6" />
+          </button>
           <Link
             to={inJam ? "/jam" : "/queue"}
             aria-label="Queue"
-            className="-mr-2 ml-auto flex h-11 w-11 flex-shrink-0 items-center justify-center"
+            className="-mr-2 flex h-11 w-11 flex-shrink-0 items-center justify-center"
           >
             <QueueIcon className="h-6 w-6" />
           </Link>

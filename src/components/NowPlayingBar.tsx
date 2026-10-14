@@ -11,6 +11,7 @@ import { useMediaQuery } from "@/lib/useMediaQuery";
 import {
   HeartIcon,
   JamIcon,
+  LyricsIcon,
   PauseIcon,
   PlayIcon,
   QueueIcon,
@@ -238,6 +239,21 @@ export function NowPlayingBar() {
         </div>
 
         <div className="flex min-w-0 items-center justify-end gap-2 pr-1">
+          <Link
+            to="/lyrics"
+            aria-label="Lyrics"
+            title="Lyrics"
+            onClick={(e) => {
+              // A second click closes them, like the queue.
+              if (pathname === "/lyrics") {
+                e.preventDefault();
+                navigate(-1);
+              }
+            }}
+            className={`flex-shrink-0 ${pathname === "/lyrics" ? "text-spotify-green" : "text-spotify-gray hover:text-white"}`}
+          >
+            <LyricsIcon className="h-4 w-4" />
+          </Link>
           <Link
             // In a Jam, its page is the queue.
             to={inJam ? "/jam" : "/queue"}

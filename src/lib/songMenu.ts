@@ -15,6 +15,8 @@ export interface SongMenuRequest {
   onToggleStar?: () => void;
   /** Offers "Remove from this playlist". */
   onRemoveFromPlaylist?: () => void;
+  /** Offers "Select", to pick several songs of the list. */
+  onSelect?: () => void;
 }
 
 interface State {

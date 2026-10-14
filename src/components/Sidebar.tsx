@@ -5,6 +5,8 @@ import { useJam } from "@/context/JamContext";
 import { isWide, openOrCloseRightPanel, shownPanel, useRightPanel, WIDE_QUERY } from "@/lib/rightPanel";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { CreatePlaylistButton } from "./CreatePlaylistButton";
+import { SmartPlaylistArt } from "./SmartPlaylistArt";
+import { SMART_PLAYLISTS } from "@/lib/smartPlaylists";
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `flex items-center gap-4 rounded-md px-3 py-2 font-semibold transition-colors ${
@@ -74,6 +76,24 @@ export function Sidebar() {
             </span>
             Liked Songs
           </NavLink>
+
+          {SMART_PLAYLISTS.map((p) => (
+            <NavLink
+              key={p.id}
+              to={`/smart/${p.id}`}
+              title={p.description}
+              className={({ isActive }) =>
+                `flex flex-shrink-0 items-center gap-3 rounded-md px-2 py-1.5 text-sm hover:bg-white/10 hover:text-white ${
+                  isActive ? "text-white" : "text-spotify-gray"
+                }`
+              }
+            >
+              <span className="h-8 w-8 flex-shrink-0">
+                <SmartPlaylistArt playlist={p} />
+              </span>
+              <span className="truncate">{p.name}</span>
+            </NavLink>
+          ))}
 
           {playlists.map((playlist) => (
             <NavLink

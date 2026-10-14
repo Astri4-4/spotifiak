@@ -8,7 +8,7 @@ import { copySongLink } from "@/lib/share";
 import { closeSongMenu, showToast, useSongMenuState, type SongMenuRequest } from "@/lib/songMenu";
 import { useTrackStar } from "@/lib/trackStar";
 import { useMediaQuery } from "@/lib/useMediaQuery";
-import { ChevronLeftIcon, ChevronRightIcon, HeartIcon, PlusIcon, QueueAddIcon, QueueIcon, ShareIcon } from "./icons";
+import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, HeartIcon, PlusIcon, QueueAddIcon, QueueIcon, ShareIcon } from "./icons";
 
 /** The song menu and its confirmations, for the whole app (see lib/songMenu.ts). */
 export function SongMenu() {
@@ -169,6 +169,11 @@ function MainItems({
       >
         Share
       </Item>
+      {request.onSelect && (
+        <Item large={large} icon={<CheckIcon className="h-4 w-4" />} onClick={() => run(request.onSelect!)}>
+          Select
+        </Item>
+      )}
       {(track.albumId || track.artistId) && <hr className="my-1 border-white/10" />}
       {track.albumId && (
         <Item large={large} onClick={() => run(() => navigate(`/album/${track.albumId}`))}>

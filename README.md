@@ -35,6 +35,13 @@ Turn on **Discover** in Search to search Deezer instead of your library: listen 
 - Set the deemix server with `DEEMIX_URL` on the Spotifiak server, or from **Settings → Discover** (Navidrome admins only; saved in `JAM_DATA_DIR`, `/opt/jam/data` in the Docker image - mount a volume there to keep it). Leave it empty to turn Discover off.
 - The desktop and mobile apps use the Discover of their Jam server.
 
+## Library
+
+- **Artist pages** show their popular songs, albums apart from singles and EPs, a biography and similar artists in the library. Popular songs, the biography and similar artists come from Last.fm through Navidrome (`getTopSongs`, `getArtistInfo2`), so they need Last.fm set up there (`ND_LASTFM_APIKEY`/`ND_LASTFM_SECRET`); without it, the page shows the artist's songs you play the most instead.
+- **Sort and search**: Your Library (playlists, artists, every album), a playlist and Liked Songs can be searched and sorted (title, artist, album, duration, plays, recently added or played...). The sort is remembered on each device.
+- **Select several songs**: "Select" in a song's menu, or Ctrl/Cmd-click and Shift-click, then play, queue, like, add to a playlist or remove them from yours at once.
+- **Smart playlists**, worked out from your own listening each time they're opened (Navidrome keeps play counts per person): On Repeat (most played), Recently Played, Fresh in the Library (newest albums), Liked, Never Played and Forgotten Likes (not played in 3 months). Any of them can be saved as a regular playlist.
+
 ## Hide duplicates
 
 Albums, artists and playlists have a **Hide duplicates** button, for when the library has the same song several times (an album's track and its single, a compilation, a downloaded playlist's folder). It finds the other copies of their songs (same title and artist, about the same length), keeps the best one - an album's track over a single, then the highest bitrate - and hides the others, after showing what it would hide.

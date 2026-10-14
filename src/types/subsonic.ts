@@ -99,3 +99,22 @@ export interface NowPlayingEntry extends Child {
   playerId?: number;
   playerName?: string;
 }
+
+/** One set of lyrics from OpenSubsonic's getLyricsBySongId. */
+export interface StructuredLyrics {
+  displayArtist?: string;
+  displayTitle?: string;
+  lang: string;
+  /** Milliseconds to shift every line by; positive shows lines sooner. */
+  offset?: number;
+  synced: boolean;
+  /** `start` (milliseconds) is only set when synced. */
+  line: { start?: number; value: string }[];
+}
+
+/** Legacy getLyrics: plain text only. */
+export interface LyricsResult {
+  artist?: string;
+  title?: string;
+  value?: string;
+}

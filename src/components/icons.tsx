@@ -247,6 +247,15 @@ export function QueueIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function LyricsIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <circle cx={15} cy={9} r={5.5} />
+      <path d="m11 13-7 7M11.1 5.1l7.8 7.8" />
+    </svg>
+  );
+}
+
 export function DragHandleIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" {...props}>

@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld("desktop", {
     status: () => ipcRenderer.invoke("update:status"),
     check: () => ipcRenderer.invoke("update:check"),
     apply: () => ipcRenderer.invoke("update:apply"),
+    getPrerelease: () => ipcRenderer.invoke("update:get-prerelease"),
+    setPrerelease: (value) => ipcRenderer.invoke("update:set-prerelease", value),
     /** Calls `listener` with every status change; returns an unsubscribe function. */
     onStatus: (listener) => {
       const handler = (_event, status) => listener(status);

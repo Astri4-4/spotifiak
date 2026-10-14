@@ -28,6 +28,9 @@ export interface DesktopUpdatesBridge {
   status(): Promise<UpdateStatus & { current: string }>;
   check(): Promise<UpdateStatus & { current: string }>;
   apply(): Promise<void>;
+  /** Missing in desktop apps installed before pre-releases could be chosen. */
+  getPrerelease?(): Promise<boolean>;
+  setPrerelease?(value: boolean): Promise<void>;
   onStatus(listener: (status: UpdateStatus & { current: string }) => void): () => void;
 }
 
@@ -40,6 +43,41 @@ const isNative = Capacitor.isNativePlatform();
 
 /** Whether this build can update itself (not in a plain browser, where the server serves the latest). */
 export const updatesSupported = Boolean(desktop) || isNative;
+
+// Pre-releases: opt-in. Desktop keeps the choice in the main process (which
+// checks by itself at launch); mobile on this device.
+const PRERELEASE_KEY = "spotifion.updates.prerelease";
+
+/** Whether this build can switch to pre-releases (desktop apps need an install from after it was added). */
+export const prereleaseSupported = desktop ? Boolean(desktop.setPrerelease) : isNative;
+
+function storedPrerelease(): boolean {
+  try {
+    return localStorage.getItem(PRERELEASE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** Whether pre-releases are downloaded too. */
+export async function getPrerelease(): Promise<boolean> {
+  if (desktop?.getPrerelease) return desktop.getPrerelease();
+  return storedPrerelease();
+}
+
+/** Turns pre-releases on or off, and checks for updates again. */
+export async function setPrerelease(value: boolean): Promise<void> {
+  if (desktop?.setPrerelease) {
+    await desktop.setPrerelease(value);
+  } else {
+    try {
+      localStorage.setItem(PRERELEASE_KEY, value ? "1" : "0");
+    } catch {
+      // Private storage unavailable: stays as it was.
+    }
+  }
+  await checkForUpdates();
+}
 
 let status: UpdateStatus = { phase: "idle" };
 const listeners = new Set<() => void>();
@@ -78,7 +116,7 @@ let nextBundle: BundleInfo | null = null;
 async function checkNative() {
   setStatus({ phase: "checking" });
   try {
-    const latest = await fetchLatestBundle(UPDATE_REPO);
+    const latest = await fetchLatestBundle(UPDATE_REPO, { prerelease: storedPrerelease() });
     if (!latest || compareVersions(latest.version, __APP_VERSION__) <= 0) {
       setStatus({ phase: "up-to-date" });
       return;

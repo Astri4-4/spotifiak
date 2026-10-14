@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { usePlaylists } from "@/lib/playlists";
-import { HeartIcon, HomeIcon, JamIcon, LibraryIcon, PlusIcon, SearchIcon } from "./icons";
+import { HeartIcon, HomeIcon, JamIcon, LibraryIcon, MixIcon, PlusIcon, SearchIcon } from "./icons";
 import { useJam } from "@/context/JamContext";
 import { CreatePlaylistButton } from "./CreatePlaylistButton";
 
@@ -29,6 +29,10 @@ export function Sidebar() {
             <JamIcon className="h-6 w-6" />
             Jam
             {jamId && <span className="ml-auto h-2 w-2 rounded-full bg-spotify-green" aria-label="In a Jam" />}
+          </NavLink>
+          <NavLink to="/mixes" className={navLinkClass}>
+            <MixIcon className="h-6 w-6" />
+            Mixes
           </NavLink>
         </nav>
       </div>

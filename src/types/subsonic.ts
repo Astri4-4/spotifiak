@@ -48,6 +48,8 @@ export interface Child {
   created?: string;
   starred?: string;
   type?: string;
+  /** How often the logged-in user played it (OpenSubsonic; Navidrome sends it). */
+  playCount?: number;
 }
 
 export interface Playlist {

@@ -101,12 +101,13 @@ export async function deletePlaylist(id: string): Promise<void> {
 
 export async function updatePlaylist(
   playlistId: string,
-  options: { songIdToAdd?: string[]; songIndexToRemove?: number[]; name?: string; comment?: string } = {},
+  options: { songIdToAdd?: string[]; songIndexToRemove?: number[]; name?: string; comment?: string; public?: boolean } = {},
 ): Promise<void> {
   await request("updatePlaylist", {
     playlistId,
     name: options.name,
     comment: options.comment,
+    public: options.public,
     songIdToAdd: options.songIdToAdd,
     songIndexToRemove: options.songIndexToRemove,
   });

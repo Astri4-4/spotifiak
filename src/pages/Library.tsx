@@ -13,7 +13,7 @@ import { MediaCard, MediaRow } from "@/components/MediaCard";
 import { Loading } from "@/components/Loading";
 import { CardGrid } from "@/components/CardGrid";
 import { CreatePlaylistButton } from "@/components/CreatePlaylistButton";
-import { HeartIcon, PlusIcon } from "@/components/icons";
+import { HeartIcon, MixIcon, PlusIcon } from "@/components/icons";
 import { PHONE_QUERY, useMediaQuery } from "@/lib/useMediaQuery";
 
 type Tab = "playlists" | "artists" | "albums";
@@ -29,6 +29,12 @@ interface LibraryItem {
 const likedSongsArt = (
   <span className="flex h-full w-full items-center justify-center rounded bg-gradient-to-br from-indigo-700 to-blue-300">
     <HeartIcon filled className="h-1/3 w-1/3 text-pure-white" />
+  </span>
+);
+
+const mixesArt = (
+  <span className="flex h-full w-full items-center justify-center rounded bg-gradient-to-br from-spotify-green to-fuchsia-500">
+    <MixIcon className="h-1/3 w-1/3 text-pure-white" />
   </span>
 );
 
@@ -89,6 +95,7 @@ export function Library() {
       ) : isPhone ? (
         <div className="flex flex-col">
           {tab === "playlists" && <MediaRow to="/liked" image={likedSongsArt} title="Liked Songs" subtitle="Playlist" />}
+          {tab === "playlists" && <MediaRow to="/mixes" image={mixesArt} title="Mixes" subtitle="Blended with friends" />}
           {items.map((item) => (
             <MediaRow key={item.to} {...item} />
           ))}
@@ -102,6 +109,15 @@ export function Library() {
             >
               <span className="aspect-square w-full shadow-lg">{likedSongsArt}</span>
               <p className="truncate font-semibold text-white">Liked Songs</p>
+            </Link>
+          )}
+          {tab === "playlists" && (
+            <Link
+              to="/mixes"
+              className="flex flex-col gap-3 rounded-md bg-spotify-elevated-black/60 p-3 transition-colors hover:bg-spotify-highlight-black sm:p-4"
+            >
+              <span className="aspect-square w-full shadow-lg">{mixesArt}</span>
+              <p className="truncate font-semibold text-white">Mixes</p>
             </Link>
           )}
           {items.map((item) => (

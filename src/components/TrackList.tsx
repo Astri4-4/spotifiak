@@ -22,6 +22,8 @@ interface TrackListProps {
   onToggleStar?: (track: Child) => void;
   /** Offers "Remove from this playlist" in the song menu. */
   onRemoveFromPlaylist?: (index: number) => void;
+  /** A short note after the artist, e.g. whose top songs a mix's song comes from. */
+  rowNote?: (index: number) => string | undefined;
 }
 
 export function TrackList({
@@ -33,6 +35,7 @@ export function TrackList({
   starredIds,
   onToggleStar,
   onRemoveFromPlaylist,
+  rowNote,
 }: TrackListProps) {
   const { current, isPlaying, togglePlay, playQueue, enqueue, inJam } = usePlayer();
   const [justQueued, setJustQueued] = useState<string | null>(null);
@@ -83,6 +86,7 @@ export function TrackList({
         {tracks.map((track, index) => {
           const isCurrent = current?.id === track.id;
           const starred = starredIds?.has(track.id) ?? Boolean(track.starred);
+          const note = rowNote?.(index);
           return (
             <div
               key={`${track.id}-${index}`}
@@ -143,6 +147,7 @@ export function TrackList({
                       ) : (
                         track.artist
                       )}
+                      {note && <span> · {note}</span>}
                     </p>
                   )}
                 </div>

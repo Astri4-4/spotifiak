@@ -32,11 +32,17 @@
 // And it removes duplicate songs from the music files - see duplicates.mjs.
 //
 //   /jam-api/duplicates/...
+//
+// And it keeps the weekly scoreboard: who listened the most, and the artists
+// friends have in common - see scoreboard.mjs.
+//
+//   /jam-api/scoreboard/...
 
 import http from "node:http";
 import crypto from "node:crypto";
 import { handleDiscover } from "./discover.mjs";
 import { handleDuplicates } from "./duplicates.mjs";
+import { handleScoreboard } from "./scoreboard.mjs";
 
 const PORT = Number(process.env.JAM_PORT || 3001);
 const HOST = process.env.JAM_HOST || "127.0.0.1";
@@ -559,6 +565,12 @@ async function handle(req, res) {
     const username = await authenticate(url.searchParams);
     if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });
     return handleDuplicates(req, res, url, username, { navidromeUrl: NAVIDROME_URL, readJson });
+  }
+
+  if (url.pathname === "/jam-api/scoreboard" || url.pathname.startsWith("/jam-api/scoreboard/")) {
+    const username = await authenticate(url.searchParams);
+    if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });
+    return handleScoreboard(req, res, url, username, { navidromeUrl: NAVIDROME_URL, readJson });
   }
 
   if (url.pathname.startsWith("/jam-api/discover/")) {

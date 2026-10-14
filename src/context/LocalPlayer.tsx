@@ -11,6 +11,7 @@ import {
 import type { ActionHandler, MediaSessionAction } from "@capgo/capacitor-media-session";
 import { MediaSession } from "@/lib/mediaSession";
 import { coverArtUrl, scrobble, streamUrl } from "@/api/subsonic";
+import { reportPlay } from "@/api/scoreboard";
 import { toJamTrack } from "@/api/jam";
 import { getShareListening } from "@/lib/sharing";
 import type { Child } from "@/types/subsonic";
@@ -516,6 +517,7 @@ export function LocalPlayerProvider({ children }: { children: ReactNode }) {
           if (!scrobbledRef.current && current?.duration && t > current.duration * 0.5) {
             scrobbledRef.current = true;
             scrobble(current.id, true).catch(() => void 0);
+            if (getShareListening()) reportPlay(current.id).catch(() => void 0);
           }
           // Periodically pull this device back onto the Jam's shared playhead.
           if (inJam && jam?.playing && !audio.seeking && Date.now() - lastDriftCheckRef.current > JAM_DRIFT_CHECK_MS) {

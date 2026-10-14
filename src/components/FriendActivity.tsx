@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { coverArtUrl } from "@/api/subsonic";
 import { usePlayer } from "@/context/PlayerContext";
@@ -5,10 +6,43 @@ import { useFriendActivity } from "@/lib/friendActivity";
 import { useShareListening } from "@/lib/sharing";
 import type { NowPlayingEntry } from "@/types/subsonic";
 import { Loading } from "./Loading";
+import { Scoreboard } from "./Scoreboard";
 import { PlayIcon } from "./icons";
 
-/** What the other users of the server are listening to, like Spotify's Friend Activity. */
+const TABS = [
+  { id: "now", label: "Now" },
+  { id: "week", label: "This week" },
+] as const;
+
+/** Friend activity: what others are listening to now, and this week's scoreboard. */
 export function FriendActivity() {
+  const [tab, setTab] = useState<(typeof TABS)[number]["id"]>("now");
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div role="tablist" aria-label="Friend activity" className="flex gap-2 px-2">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.id}
+            onClick={() => setTab(t.id)}
+            className={`rounded-full px-3 py-1 text-sm font-semibold transition-colors ${
+              tab === t.id ? "bg-white text-black" : "bg-spotify-highlight-black text-white hover:bg-white/20"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel">{tab === "now" ? <NowListening /> : <Scoreboard />}</div>
+    </div>
+  );
+}
+
+/** What the other users of the server are listening to, like Spotify's Friend Activity. */
+function NowListening() {
   const entries = useFriendActivity();
   const sharing = useShareListening();
 

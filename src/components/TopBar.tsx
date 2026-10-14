@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { FriendsIcon, SearchIcon } from "./icons";
+import { Avatar } from "./Avatar";
 import { setFriendsPanelOpen, useFriendsPanelOpen } from "@/lib/friendsPanel";
 
 export function TopBar() {
@@ -52,9 +53,9 @@ export function TopBar() {
         to="/settings"
         aria-label="Settings"
         title="Settings"
-        className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-white/20 font-bold text-white transition hover:scale-105"
+        className="flex-shrink-0 rounded-full transition hover:scale-105"
       >
-        {username?.[0]?.toUpperCase() ?? "?"}
+        <Avatar username={username} className="h-8 w-8" />
       </Link>
     </header>
   );

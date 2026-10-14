@@ -5,6 +5,7 @@ import { useFriendActivity } from "@/lib/friendActivity";
 import { useShareListening } from "@/lib/sharing";
 import type { NowPlayingEntry } from "@/types/subsonic";
 import { Loading } from "./Loading";
+import { Avatar } from "./Avatar";
 import { PlayIcon } from "./icons";
 
 /** What the other users of the server are listening to, like Spotify's Friend Activity. */
@@ -50,9 +51,7 @@ function FriendEntry({ entry }: { entry: NowPlayingEntry }) {
   return (
     <div className="group flex items-center gap-3 rounded-md p-2 hover:bg-white/5">
       <span className="relative flex-shrink-0">
-        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/20 text-sm font-bold">
-          {entry.username[0]?.toUpperCase()}
-        </span>
+        <Avatar username={entry.username} className="h-11 w-11 text-sm" />
         {live && (
           <span
             className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-spotify-base-black bg-spotify-green"

@@ -63,6 +63,10 @@ A mix blends a few people's most played songs into one playlist, like Spotify's 
 - The creator can also save it as a public Navidrome playlist, which everyone on the server can play from any Subsonic app. It's updated when they open the mix.
 - Mixes are saved in `JAM_DATA_DIR` (`/opt/jam/data` in the Docker image - mount a volume there to keep them). Without a writable one, they're lost when the server restarts.
 
+## Profile pictures
+
+Set yours in **Settings → Account**. The app crops the middle square of the picture, shrinks it to a 256px JPEG and uploads it to the Jam server (`server/avatars.mjs`), since Navidrome's API can't store one. It shows next to your name in the top bar, Jam and Friend activity; people without one get their initial. Pictures are saved in `JAM_DATA_DIR/avatars` (lost on restart without a writable one, like Mixes).
+
 ## Local development
 
 ```bash

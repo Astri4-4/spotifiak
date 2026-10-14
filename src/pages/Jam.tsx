@@ -7,6 +7,7 @@ import { parseJamCode, type JamQueueItem } from "@/api/jam";
 import { Loading } from "@/components/Loading";
 import { jamInviteOrigin } from "@/lib/servers";
 import { CheckIcon, CloseIcon, DragHandleIcon, JamIcon } from "@/components/icons";
+import { Avatar } from "@/components/Avatar";
 import { useDragReorder } from "@/lib/useDragReorder";
 
 export function Jam() {
@@ -190,9 +191,7 @@ function JamSession() {
           <ul className="flex flex-wrap gap-2">
             {jam.members.map((m) => (
               <li key={m.clientId} className="flex items-center gap-2 rounded-full bg-white/10 py-1 pl-1 pr-3 text-sm">
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 font-bold text-white">
-                  {m.username[0]?.toUpperCase()}
-                </span>
+                <Avatar username={m.username} className="h-7 w-7" />
                 {m.username}
                 {m.username === jam.host && <span className="text-xs text-spotify-green">Host</span>}
                 {m.username === username && m.username !== jam.host && <span className="text-xs text-spotify-gray">You</span>}

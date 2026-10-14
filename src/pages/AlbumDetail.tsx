@@ -7,12 +7,17 @@ import { TrackList } from "@/components/TrackList";
 import { Loading } from "@/components/Loading";
 import { DetailHeader, PlayButton, ShufflePlayButton } from "@/components/DetailHeader";
 import { shuffled } from "@/lib/shuffle";
-import { RemoveDuplicatesButton } from "@/components/RemoveDuplicatesButton";
+import { HideDuplicatesButton } from "@/components/HideDuplicatesButton";
+import { useVisibleSongs } from "@/lib/hidden";
+import type { Child } from "@/types/subsonic";
+
+const NO_SONGS: Child[] = [];
 
 export function AlbumDetail() {
   const { id } = useParams<{ id: string }>();
   const [album, setAlbum] = useState<AlbumWithSongsID3 | null>(null);
   const { playQueue } = usePlayer();
+  const songs = useVisibleSongs(album?.song ?? NO_SONGS);
 
   useEffect(() => {
     if (!id) return;
@@ -21,8 +26,6 @@ export function AlbumDetail() {
   }, [id]);
 
   if (!album) return <Loading />;
-
-  const songs = album.song ?? [];
 
   return (
     <div>
@@ -51,7 +54,7 @@ export function AlbumDetail() {
           disabled={songs.length === 0}
           label="Shuffle album"
         />
-        <RemoveDuplicatesButton kind="album" id={album.id} onDone={() => getAlbum(album.id).then(setAlbum)} />
+        <HideDuplicatesButton what="album" songs={() => album.song ?? []} albumIds={[album.id]} />
       </div>
 
       <div className="mt-4 sm:mt-8">

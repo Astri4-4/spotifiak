@@ -29,9 +29,9 @@
 //
 //   /jam-api/discover/...
 //
-// And it removes duplicate songs from the music files - see duplicates.mjs.
+// And it keeps each person's hidden duplicate songs - see hidden.mjs.
 //
-//   /jam-api/duplicates/...
+//   /jam-api/hidden/...
 //
 // And it keeps Mixes, playlists blended from several people's top songs -
 // see mixes.mjs.
@@ -50,7 +50,7 @@
 import http from "node:http";
 import crypto from "node:crypto";
 import { handleDiscover } from "./discover.mjs";
-import { handleDuplicates } from "./duplicates.mjs";
+import { handleHidden } from "./hidden.mjs";
 import { handleMixes, mixForInvite } from "./mixes.mjs";
 import { handleAvatars } from "./avatars.mjs";
 import { handleInvites, rememberPerson } from "./invites.mjs";
@@ -610,10 +610,10 @@ async function handle(req, res) {
   // Unauthenticated health check for container/Kubernetes probes.
   if (url.pathname === "/jam-api/healthz") return json(res, 200, { ok: true, sessions: sessions.size });
 
-  if (url.pathname === "/jam-api/duplicates" || url.pathname.startsWith("/jam-api/duplicates/")) {
+  if (url.pathname === "/jam-api/hidden" || url.pathname.startsWith("/jam-api/hidden/")) {
     const username = await authenticate(url.searchParams);
     if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });
-    return handleDuplicates(req, res, url, username, { navidromeUrl: NAVIDROME_URL, readJson });
+    return handleHidden(req, res, url, username, { readJson });
   }
 
   if (url.pathname === "/jam-api/avatars" || url.pathname.startsWith("/jam-api/avatars/")) {

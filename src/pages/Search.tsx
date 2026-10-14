@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { coverArtUrl, search3, type SearchResult3 } from "@/api/subsonic";
 import { MediaCard } from "@/components/MediaCard";
@@ -7,6 +7,7 @@ import { TrackList } from "@/components/TrackList";
 import { Loading } from "@/components/Loading";
 import { DiscoverResults } from "@/components/DiscoverResults";
 import { useDiscoverConfig } from "@/lib/discover";
+import { useHidden, visibleIndices } from "@/lib/hidden";
 
 export function Search() {
   const [params, setParams] = useSearchParams();
@@ -63,7 +64,18 @@ export function Search() {
 }
 
 function LibraryResults({ query }: { query: string }) {
-  const [results, setResults] = useState<SearchResult3 | null>(null);
+  const [found, setResults] = useState<SearchResult3 | null>(null);
+  const hidden = useHidden();
+  // Without hidden duplicates, nor albums made only of them.
+  const results = useMemo(() => {
+    if (!found) return null;
+    const songs = found.song ?? [];
+    return {
+      ...found,
+      album: found.album?.filter((a) => !hidden.albums.includes(a.id)),
+      song: visibleIndices(songs, hidden).map((i) => songs[i]),
+    };
+  }, [found, hidden]);
 
   useEffect(() => {
     if (!query) {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   deletePlaylist,
@@ -21,7 +21,10 @@ import { CloseIcon, DragHandleIcon } from "@/components/icons";
 import { shuffled } from "@/lib/shuffle";
 import { refreshPlaylists } from "@/lib/playlists";
 import { useDragReorder } from "@/lib/useDragReorder";
-import { RemoveDuplicatesButton } from "@/components/RemoveDuplicatesButton";
+import { HideDuplicatesButton } from "@/components/HideDuplicatesButton";
+import { useHidden, visibleIndices } from "@/lib/hidden";
+
+const NO_SONGS: Child[] = [];
 
 export function PlaylistDetail() {
   const { id } = useParams<{ id: string }>();
@@ -35,6 +38,11 @@ export function PlaylistDetail() {
   // Edits are saved one after the other, in the order they were made, since
   // Subsonic removes songs by position.
   const savingRef = useRef(Promise.resolve());
+  const hidden = useHidden();
+  const songs: Child[] = playlist?.entry ?? NO_SONGS;
+  // Hidden duplicates aren't shown (but stay in the playlist: editing shows everything).
+  const shown = useMemo(() => visibleIndices(songs, hidden), [songs, hidden]);
+  const visible = useMemo(() => shown.map((i) => songs[i]), [shown, songs]);
 
   function load(playlistId: string) {
     getPlaylist(playlistId).then((p) => {
@@ -52,8 +60,6 @@ export function PlaylistDetail() {
   }, [id]);
 
   if (!playlist || !id) return <Loading />;
-
-  const songs: Child[] = playlist.entry ?? [];
   // Navidrome only lets the owner change a playlist.
   const canEdit = !playlist.owner || playlist.owner === username;
 
@@ -131,16 +137,16 @@ export function PlaylistDetail() {
         meta={
           <>
             {playlist.comment && <span className="mb-1 block">{playlist.comment}</span>}
-            {songs.length} songs
+            {visible.length} songs
             {playlist.duration ? ` · ${formatDurationLong(playlist.duration)}` : ""}
           </>
         }
       />
       <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3 sm:mt-6">
-        <PlayButton onClick={() => playQueue(songs)} disabled={songs.length === 0} label="Play playlist" />
+        <PlayButton onClick={() => playQueue(visible)} disabled={visible.length === 0} label="Play playlist" />
         <ShufflePlayButton
-          onClick={() => playQueue(shuffled(songs))}
-          disabled={songs.length === 0}
+          onClick={() => playQueue(shuffled(visible))}
+          disabled={visible.length === 0}
           label="Shuffle playlist"
         />
         {canEdit && (
@@ -156,7 +162,7 @@ export function PlaylistDetail() {
             {editing ? "Done" : "Edit playlist"}
           </button>
         )}
-        <RemoveDuplicatesButton kind="playlist" id={id} onDone={() => load(id)} />
+        <HideDuplicatesButton what="playlist" songs={() => songs} />
         <button
           type="button"
           onClick={handleDelete}
@@ -184,12 +190,12 @@ export function PlaylistDetail() {
           <EditableSongs songs={songs} onRemove={removeSong} onMove={moveSong} />
         ) : (
           <TrackList
-            tracks={songs}
+            tracks={visible}
             showAlbum
             showCover
             starredIds={starredIds}
             onToggleStar={handleToggleStar}
-            onRemoveFromPlaylist={canEdit ? removeSong : undefined}
+            onRemoveFromPlaylist={canEdit ? (i) => removeSong(shown[i]) : undefined}
           />
         )}
       </div>

@@ -16,6 +16,7 @@ import { usePlayer } from "@/context/PlayerContext";
 import { openOrCloseRightPanel, setRightPanel, shownPanel, useRightPanel, WIDE_QUERY } from "@/lib/rightPanel";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { useInvitePolling } from "@/lib/invites";
+import { useHiddenLoader } from "@/lib/hidden";
 import { useAuth } from "@/context/AuthContext";
 
 const PANEL_TITLES = { friends: "Friend activity", queue: "Queue", jam: "Jam" };
@@ -27,7 +28,9 @@ export function Layout() {
   const { inJam } = usePlayer();
   const panel = shownPanel(useRightPanel(), inJam);
   const wide = useMediaQuery(WIDE_QUERY);
-  useInvitePolling(useAuth().username);
+  const { username } = useAuth();
+  useInvitePolling(username);
+  useHiddenLoader(username);
 
   // The page scrolls inside <main>, not the window, so reset it on navigation.
   useEffect(() => {

@@ -5,6 +5,7 @@ import { usePlayer } from "@/context/PlayerContext";
 import { useAuth } from "@/context/AuthContext";
 import { refreshPlaylists, usePlaylists } from "@/lib/playlists";
 import { showToast } from "@/lib/songMenu";
+import { setStarred } from "@/lib/trackStar";
 import { CloseIcon, HeartIcon, PlayIcon, PlusIcon, QueueAddIcon } from "./icons";
 
 const plural = (n: number) => `${n} song${n === 1 ? "" : "s"}`;
@@ -54,7 +55,10 @@ export function SelectionBar({
     const changing = tracks.filter((t) => isStarred(t) === allStarred);
     try {
       if (onToggleStar) changing.forEach(onToggleStar);
-      else await (allStarred ? unstar : star)({ id: changing.map((t) => t.id) });
+      else {
+        await (allStarred ? unstar : star)({ id: changing.map((t) => t.id) });
+        for (const t of changing) setStarred(t.id, !allStarred);
+      }
       done(allStarred ? `Removed ${plural(count)} from Liked Songs` : `Added ${plural(changing.length)} to Liked Songs`);
     } catch {
       showToast("Couldn't change your likes");

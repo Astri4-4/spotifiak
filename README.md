@@ -54,6 +54,19 @@ Open **Jam** in the sidebar (or the tab bar on mobile) and start one, then share
 - The host can end the Jam for everyone; guests can leave at any time. A Jam nobody is connected to is cleaned up after 15 minutes.
 - Listeners stay in sync to within a fraction of a second when Navidrome serves the original file. If Navidrome *transcodes* a track, the stream can't be seeked, so someone joining mid-song hears it from the start until the next track.
 
+## Mixes
+
+A mix blends a few people's most played songs into one playlist, like Spotify's Blend. Open **Mixes** in the sidebar (or **Your Library** on mobile), make one and share the invite link or code.
+
+- Navidrome only shows play counts to their owner, so each member's app works out their own top 50 songs (from their most played albums, topped up with liked songs) and sends them to the Jam server (`server/mixes.mjs`). Joining a mix is agreeing to share them with its members; others with the code only see who's in it.
+- Songs several members play open the mix, then everyone's songs take turns, up to 100. Your songs are refreshed when you open the mix, at most once a day.
+- The creator can also save it as a public Navidrome playlist, which everyone on the server can play from any Subsonic app. It's updated when they open the mix.
+- Mixes are saved in `JAM_DATA_DIR` (`/opt/jam/data` in the Docker image - mount a volume there to keep them). Without a writable one, they're lost when the server restarts.
+
+## Profile pictures
+
+Set yours in **Settings → Account**. The app crops the middle square of the picture, shrinks it to a 256px JPEG and uploads it to the Jam server (`server/avatars.mjs`), since Navidrome's API can't store one. It shows next to your name in the top bar, Jam and Friend activity; people without one get their initial. Pictures are saved in `JAM_DATA_DIR/avatars` (lost on restart without a writable one, like Mixes).
+
 ## Local development
 
 ```bash
@@ -104,6 +117,7 @@ Things worth knowing:
 
 - **One replica only.** Jam sessions live in the Jam server's memory, so the Deployment runs `replicas: 1` with the `Recreate` strategy. Scaling out would put guests on pods that don't know the host's Jam. Redeploying or rescheduling the pod ends any running Jams.
 - **Locked-down by default.** The image is based on `nginx-unprivileged` and runs as uid 101, so it passes the `restricted` Pod Security Standard (non-root, no capabilities, read-only root filesystem with `emptyDir`s for `/etc/nginx/conf.d`, `/tmp` and `/var/cache/nginx`).
+- **Saved data.** Mixes and the deemix server set in Settings are kept in `JAM_DATA_DIR` (`/opt/jam/data`), on a small `ReadWriteOnce` volume from the default StorageClass (`data-volume.yaml`). The pod's `fsGroup: 101` makes it writable for the app; CSI drivers that apply fsGroup to every volume would also re-own the music share, which the SMB driver doesn't (it only applies it to `ReadWriteOnce` volumes).
 - **Probes.** Readiness hits `/jam-api/healthz` (nginx + Jam server); liveness hits `/healthz` (nginx only - the Jam server is restarted inside the container if it crashes).
 - **Ingress.** Jam's event stream is a long-lived Server-Sent Events connection. With ingress-nginx, keep the annotations from `ingress.yaml` (buffering off, 1h read timeout); other controllers need the equivalent settings, or Jam updates arrive late or the stream drops every minute.
 - **Navidrome in the same cluster?** Point `NAVIDROME_URL` at its Service, e.g. `http://navidrome.media.svc.cluster.local:4533`.

@@ -6,6 +6,8 @@ import { coverArtUrl } from "@/api/subsonic";
 import { formatDuration } from "@/lib/format";
 import { useNowPlayingSheet } from "@/lib/nowPlayingSheet";
 import { useTrackStar } from "@/lib/trackStar";
+import { openOrCloseRightPanel, shownPanel, useRightPanel, WIDE_QUERY } from "@/lib/rightPanel";
+import { useMediaQuery } from "@/lib/useMediaQuery";
 import {
   HeartIcon,
   JamIcon,
@@ -49,6 +51,11 @@ export function NowPlayingBar() {
   const { remoteDevice } = useConnect();
   const { pathname } = useLocation();
   const navigate = useNavigate();
+  // Wide screens open the queue and Jam beside the page instead of as pages.
+  const wide = useMediaQuery(WIDE_QUERY);
+  const panel = shownPanel(useRightPanel(), inJam);
+  const queueOpen = wide ? panel === (inJam ? "jam" : "queue") : pathname === "/queue";
+  const jamOpen = wide ? panel === "jam" : pathname === "/jam";
 
   if (!current) {
     return (
@@ -253,21 +260,30 @@ export function NowPlayingBar() {
             aria-label="Queue"
             title="Queue"
             onClick={(e) => {
-              // A second click closes it, like Spotify's.
-              if (pathname === "/queue") {
+              if (wide) {
+                e.preventDefault();
+                openOrCloseRightPanel("queue", inJam);
+              } else if (pathname === "/queue") {
+                // A second click closes it, like Spotify's.
                 e.preventDefault();
                 navigate(-1);
               }
             }}
-            className={`flex-shrink-0 ${pathname === "/queue" ? "text-spotify-green" : "text-spotify-gray hover:text-white"}`}
+            className={`flex-shrink-0 ${queueOpen ? "text-spotify-green" : "text-spotify-gray hover:text-white"}`}
           >
             <QueueIcon className="h-4 w-4" />
           </Link>
           <Link
             to="/jam"
             title={inJam ? "Open Jam" : "Start a Jam"}
+            onClick={(e) => {
+              if (wide) {
+                e.preventDefault();
+                openOrCloseRightPanel("jam", inJam);
+              }
+            }}
             className={`mr-1 flex flex-shrink-0 items-center gap-1.5 rounded-full px-2 py-1 text-xs font-semibold ${
-              inJam ? "bg-spotify-green/15 text-spotify-green" : "text-spotify-gray hover:text-white"
+              inJam ? "bg-spotify-green/15 text-spotify-green" : jamOpen ? "text-spotify-green" : "text-spotify-gray hover:text-white"
             }`}
           >
             <JamIcon className="h-4 w-4" />

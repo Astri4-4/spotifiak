@@ -10,6 +10,8 @@ import { SubsonicError } from "@/api/client";
 import { ping } from "@/api/subsonic";
 import { checkJamServer } from "@/api/jam";
 import { CheckIcon, LogoutIcon } from "@/components/icons";
+import { Avatar } from "@/components/Avatar";
+import { removeMyAvatar, setMyAvatar, useAvatarUrl } from "@/lib/avatars";
 import { setShortcutsOpen } from "@/lib/shortcutsDialog";
 import { setDiscoverConfig, useDiscoverConfig } from "@/lib/discover";
 import { setDiscoverUrl } from "@/api/discover";
@@ -37,10 +39,11 @@ export function Settings() {
 
       <Section title="Account">
         <div className="flex items-center gap-4">
-          <span className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-white/20 text-lg font-bold">
-            {username?.[0]?.toUpperCase() ?? "?"}
-          </span>
-          <p className="min-w-0 flex-1 truncate font-semibold">{username}</p>
+          <Avatar username={username} className="h-16 w-16 text-2xl" />
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-semibold">{username}</p>
+            {username && <ProfilePictureButtons username={username} />}
+          </div>
           <button
             type="button"
             onClick={logout}
@@ -192,6 +195,53 @@ function ShareListeningToggle() {
   );
 }
 
+/** Choose, replace or remove your profile picture. */
+function ProfilePictureButtons({ username }: { username: string }) {
+  const hasPicture = useAvatarUrl(username) !== null;
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function run(task: () => Promise<void>) {
+    setBusy(true);
+    setError(null);
+    try {
+      await task();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-1">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+        <label className={`cursor-pointer font-semibold text-spotify-gray hover:text-white ${busy ? "pointer-events-none opacity-50" : ""}`}>
+          {busy ? "Saving…" : hasPicture ? "Change picture" : "Add a picture"}
+          <input
+            type="file"
+            accept="image/*"
+            className="sr-only"
+            disabled={busy}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) void run(() => setMyAvatar(username, file));
+            }}
+          />
+        </label>
+        {hasPicture && !busy && (
+          <button
+            type="button"
+            onClick={() => void run(() => removeMyAvatar(username))}
+            className="font-semibold text-spotify-gray hover:text-white"
+          >
+            Remove
+          </button>
+        )}
+      </div>
+      {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
+    </div>
 function OnlineLyricsToggle() {
   const online = useOnlineLyrics();
   return (

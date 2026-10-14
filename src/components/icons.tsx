@@ -228,6 +228,16 @@ export function BrowserIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** Two overlapping circles: a blend of people's music. */
+export function MixIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} {...props}>
+      <circle cx={9} cy={12} r={6} />
+      <circle cx={15} cy={12} r={6} />
+    </svg>
+  );
+}
+
 export function FriendsIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>

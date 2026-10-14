@@ -32,11 +32,22 @@
 // And it removes duplicate songs from the music files - see duplicates.mjs.
 //
 //   /jam-api/duplicates/...
+//
+// And it keeps Mixes, playlists blended from several people's top songs -
+// see mixes.mjs.
+//
+//   /jam-api/mixes/...
+//
+// And it keeps everyone's profile picture - see avatars.mjs.
+//
+//   /jam-api/avatars/...
 
 import http from "node:http";
 import crypto from "node:crypto";
 import { handleDiscover } from "./discover.mjs";
 import { handleDuplicates } from "./duplicates.mjs";
+import { handleMixes } from "./mixes.mjs";
+import { handleAvatars } from "./avatars.mjs";
 
 const PORT = Number(process.env.JAM_PORT || 3001);
 const HOST = process.env.JAM_HOST || "127.0.0.1";
@@ -559,6 +570,18 @@ async function handle(req, res) {
     const username = await authenticate(url.searchParams);
     if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });
     return handleDuplicates(req, res, url, username, { navidromeUrl: NAVIDROME_URL, readJson });
+  }
+
+  if (url.pathname === "/jam-api/avatars" || url.pathname.startsWith("/jam-api/avatars/")) {
+    const username = await authenticate(url.searchParams);
+    if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });
+    return handleAvatars(req, res, url, username);
+  }
+
+  if (url.pathname === "/jam-api/mixes" || url.pathname.startsWith("/jam-api/mixes/")) {
+    const username = await authenticate(url.searchParams);
+    if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });
+    return handleMixes(req, res, url, username, { readJson });
   }
 
   if (url.pathname.startsWith("/jam-api/discover/")) {

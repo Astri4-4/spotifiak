@@ -1,0 +1,13 @@
+# The Jam server's saved data (JAM_DATA_DIR): Mixes, and the deemix server
+# set from Settings → Discover. A few kilobytes; the default StorageClass
+# (Longhorn) is fine. ReadWriteOnce is enough: there's only ever one pod
+# (see the Deployment's Recreate strategy).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: spotifion-data
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 100Mi

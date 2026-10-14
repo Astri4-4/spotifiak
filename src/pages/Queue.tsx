@@ -4,25 +4,30 @@ import { coverArtUrl } from "@/api/subsonic";
 import type { Child } from "@/types/subsonic";
 import { useDragReorder } from "@/lib/useDragReorder";
 import { CloseIcon, DragHandleIcon, PauseIcon, PlayIcon } from "@/components/icons";
+import { Jam } from "./Jam";
 
-/** The player's queue: what's playing and what's next, to play, remove or reorder. */
-export function Queue() {
+/**
+ * The player's queue: what's playing and what's next, to play, remove or
+ * reorder. A page on narrow screens; in the side panel (`panel`) on wide ones.
+ */
+export function Queue({ panel = false }: { panel?: boolean }) {
   const { queue, currentIndex, current, isPlaying, shuffle, inJam, togglePlay, jumpTo, removeAt, moveTrack } =
     usePlayer();
   // A Jam's queue is shared, and shown (with who added what) on the Jam page.
   const first = currentIndex + 1;
   const { dragging, itemProps, handleProps } = useDragReorder((from, to) => moveTrack(first + from, first + to));
 
-  if (inJam) return <Navigate to="/jam" replace />;
+  // In a Jam, its queue is the Jam's.
+  if (inJam) return panel ? <Jam panel /> : <Navigate to="/jam" replace />;
 
   const nextUp = queue.slice(first);
 
   return (
-    <div className="flex flex-col gap-8 pt-4 md:pt-6">
-      <h1 className="text-2xl font-bold sm:text-3xl">Queue</h1>
+    <div className={`flex flex-col ${panel ? "gap-6" : "gap-8 pt-4 md:pt-6"}`}>
+      {!panel && <h1 className="text-2xl font-bold sm:text-3xl">Queue</h1>}
 
       <section>
-        <h2 className="mb-3 text-xl font-bold">Now playing</h2>
+        <h2 className={`mb-3 font-bold ${panel ? "text-base" : "text-xl"}`}>Now playing</h2>
         {current ? (
           <div className="flex items-center gap-3 rounded-md p-2 hover:bg-white/10">
             <button
@@ -52,7 +57,7 @@ export function Queue() {
 
       {current && (
         <section>
-          <h2 className="mb-1 text-xl font-bold">Next up</h2>
+          <h2 className={`mb-1 font-bold ${panel ? "text-base" : "text-xl"}`}>Next up</h2>
           {shuffle && (
             <p className="mb-3 text-sm text-spotify-gray">Shuffle is on: the next song is picked at random from this list.</p>
           )}

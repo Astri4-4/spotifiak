@@ -17,6 +17,8 @@ import { JoinJam } from "@/pages/JoinJam";
 import { Settings } from "@/pages/Settings";
 import { Activity } from "@/pages/Activity";
 import { Queue } from "@/pages/Queue";
+import { Mixes } from "@/pages/Mixes";
+import { Mix } from "@/pages/Mix";
 import { Lyrics } from "@/pages/Lyrics";
 
 export default function App() {
@@ -40,6 +42,8 @@ export default function App() {
                   <Route path="/lyrics" element={<Lyrics />} />
                   <Route path="/jam" element={<Jam />} />
                   <Route path="/jam/:code" element={<JoinJam />} />
+                  <Route path="/mixes" element={<Mixes />} />
+                  <Route path="/mix/:code" element={<Mix />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/activity" element={<Activity />} />
                 </Route>

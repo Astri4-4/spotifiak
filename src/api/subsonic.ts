@@ -61,6 +61,13 @@ export async function getAlbum(id: string): Promise<AlbumWithSongsID3> {
   return res["subsonic-response"].album;
 }
 
+export async function getSong(id: string): Promise<Child> {
+  const res = await request<{
+    "subsonic-response": { song: Child };
+  }>("getSong", { id });
+  return res["subsonic-response"].song;
+}
+
 export async function search3(
   query: string,
   options: { artistCount?: number; albumCount?: number; songCount?: number } = {},

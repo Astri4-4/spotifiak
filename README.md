@@ -203,7 +203,9 @@ plus `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` (`spotifiak`) and `ANDROID
 
 ## Live updates (desktop and mobile)
 
-The desktop and mobile apps update their app code on their own, without reinstalling (or re-signing on iOS). Each release also carries the built web app (`spotifiak-web-<version>.zip`) and an `update.json`; a few seconds after launch the apps check the repo's latest release on GitHub, download a newer bundle in the background, and use it from the next launch (or right away with **Settings → Updates → Restart now**). Pre-releases aren't offered.
+The desktop and mobile apps update their app code on their own, without reinstalling (or re-signing on iOS). Each release also carries the built web app (`spotifiak-web-<version>.zip`) and an `update.json`; a few seconds after launch the apps check the repo's latest release on GitHub, download a newer bundle in the background, and use it from the next launch (or right away with **Settings → Updates → Restart now**).
+
+- **Beta versions**: **Settings → Updates → Get beta versions** also offers pre-releases (tags with a `-`, like `v0.7.0-beta.1`, which the release workflow publishes as pre-releases): the newest release by version, stable or not. Turning it off never downgrades; the next stable release takes over. Desktop installs from before this setting need a new install to get it.
 
 - **Desktop** (`electron/updates.mjs`): bundles go to the app's data directory (`updates/`) and the local server serves them instead of the bundled `dist/`.
 - **Android / iOS** (`src/lib/updates.ts`): [`@capgo/capacitor-updater`](https://github.com/Cap-go/capacitor-updater) in manual mode. All of Capgo's cloud endpoints (update checks, channels, statistics) are turned off in `capacitor.config.ts`; the app only talks to GitHub.

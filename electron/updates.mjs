@@ -30,10 +30,11 @@ const bundleDir = (version) => path.join(updatesDir(), version);
 
 /**
  * active: downloaded bundle to serve; trial: served but not confirmed yet;
- * good: last downloaded bundle that started fine; bad: never use again.
- * @type {{ active: string | null, trial: string | null, good: string | null, bad: string[] }}
+ * good: last downloaded bundle that started fine; bad: never use again;
+ * prerelease: also get pre-releases (Settings, Updates).
+ * @type {{ active: string | null, trial: string | null, good: string | null, bad: string[], prerelease: boolean }}
  */
-let state = { active: null, trial: null, good: null, bad: [] };
+let state = { active: null, trial: null, good: null, bad: [], prerelease: false };
 /** Version of the web app being served this session. */
 let runningVersion = "";
 /** @type {{ phase: "idle" | "checking" | "downloading" | "up-to-date" | "ready" | "error", version?: string, message?: string }} */
@@ -116,6 +117,16 @@ export function markReady() {
   saveState();
 }
 
+/** Whether pre-releases are downloaded too. */
+export function getPrerelease() {
+  return state.prerelease;
+}
+
+export function setPrerelease(value) {
+  state.prerelease = Boolean(value);
+  saveState();
+}
+
 export function getStatus() {
   return { ...status, current: runningVersion };
 }
@@ -131,7 +142,7 @@ export function checkForUpdates() {
 async function check() {
   setStatus({ phase: "checking" });
   try {
-    const latest = await fetchLatestBundle(pkg.updates.github, API_BASE);
+    const latest = await fetchLatestBundle(pkg.updates.github, { prerelease: state.prerelease, apiBase: API_BASE });
     if (!latest || compareVersions(latest.version, runningVersion) <= 0 || state.bad.includes(latest.version)) {
       setStatus({ phase: "up-to-date" });
       return;

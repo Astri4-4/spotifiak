@@ -21,6 +21,9 @@ import { ACCENT_COLORS, resolveTheme, setTheme, THEMES, useTheme, type Theme } f
 import {
   applyUpdate,
   checkForUpdates,
+  getPrerelease,
+  prereleaseSupported,
+  setPrerelease,
   updatesSupported,
   useUpdateStatus,
   type UpdateStatus,
@@ -297,6 +300,48 @@ function HiddenDuplicates() {
   );
 }
 
+/** Opt in to pre-releases (beta versions) of the app from GitHub. */
+function PrereleaseToggle() {
+  const [on, setOn] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (prereleaseSupported) void getPrerelease().then(setOn);
+  }, []);
+
+  if (!prereleaseSupported) {
+    return <p className="text-xs text-spotify-gray">Install the latest version of the app to be able to get beta versions.</p>;
+  }
+
+  async function change(value: boolean) {
+    setOn(value);
+    await setPrerelease(value);
+  }
+
+  return (
+    <label className="flex cursor-pointer items-center justify-between gap-4">
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold">Get beta versions</span>
+        <span className="block text-xs text-spotify-gray">
+          Also update to pre-releases from GitHub: new features sooner, but they may have bugs. Turning it off doesn't go
+          back to an older version; the next stable one replaces it.
+        </span>
+      </span>
+      <input
+        type="checkbox"
+        role="switch"
+        checked={on ?? false}
+        disabled={on === null}
+        onChange={(e) => void change(e.target.checked)}
+        className="peer sr-only"
+      />
+      <span
+        aria-hidden
+        className="relative h-6 w-11 flex-shrink-0 rounded-full bg-white/30 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-pure-white after:shadow after:transition peer-checked:bg-spotify-green peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-white"
+      />
+    </label>
+  );
+}
+
 function OnlineLyricsToggle() {
   const online = useOnlineLyrics();
   return (
@@ -544,6 +589,7 @@ function UpdateSettings() {
           </button>
         )}
       </div>
+      <PrereleaseToggle />
       <p className="text-xs text-spotify-gray">
         Updates to the app itself download automatically. Some releases also need a new install of the app, which you'll be told about here.
       </p>

@@ -120,10 +120,30 @@ function fromLrclibRecord(record: LrclibRecord | undefined): Lyrics | null {
   return record.plainLyrics?.trim() ? fromPlain(record.plainLyrics.trim(), "lrclib") : null;
 }
 
+/**
+ * The song's main artist: LRCLIB rarely finds a song under all of them
+ * ("Ashnikko/K3tamine", "A feat. B"). Not split on "&" or ",", which are
+ * also in band names ("Simon & Garfunkel").
+ */
+export function primaryArtist(track: Child): string {
+  const first = track.artists?.[0]?.name?.trim();
+  if (first) return first;
+  const [main] = (track.artist ?? "").split(/\s*[/;]\s*|\s+(?:feat\.?|ft\.|featuring)\s+|\s*[([](?:feat\.?|ft\.|featuring)\s/i);
+  return main.trim() || (track.artist ?? "").trim();
+}
+
 async function fromLrclib(track: Child): Promise<Lyrics | null> {
-  if (!track.artist) return null;
+  const main = primaryArtist(track);
+  const found = main ? await fromLrclibAs(track, main) : null;
+  // A name with a "/" of its own (AC/DC) when Navidrome doesn't list the artists apart.
+  const full = track.artist?.trim();
+  if (found || !full || full === main) return found;
+  return fromLrclibAs(track, full);
+}
+
+async function fromLrclibAs(track: Child, artist: string): Promise<Lyrics | null> {
   const base = "https://lrclib.net/api";
-  const params = new URLSearchParams({ artist_name: track.artist, track_name: track.title });
+  const params = new URLSearchParams({ artist_name: artist, track_name: track.title });
   // The exact match needs the album and duration (within a couple of seconds).
   if (track.album && track.duration) {
     const exact = new URLSearchParams(params);

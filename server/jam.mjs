@@ -29,7 +29,7 @@
 //
 //   /jam-api/discover/...
 //
-// And it removes duplicate songs from the music files - see duplicates.mjs.
+// And it keeps each person's hidden duplicate songs - see hidden.mjs.
 //
 //   /jam-api/duplicates/...
 //
@@ -37,12 +37,31 @@
 // friends have in common - see scoreboard.mjs.
 //
 //   /jam-api/scoreboard/...
+//   /jam-api/hidden/...
+//
+// And it keeps Mixes, playlists blended from several people's top songs -
+// see mixes.mjs.
+//
+//   /jam-api/mixes/...
+//
+// And it keeps everyone's profile picture - see avatars.mjs.
+//
+//   /jam-api/avatars/...
+//
+// And it carries invitations to a Jam or a mix from one person to another -
+// see invites.mjs.
+//
+//   /jam-api/invites/...
 
 import http from "node:http";
 import crypto from "node:crypto";
 import { handleDiscover } from "./discover.mjs";
 import { handleDuplicates } from "./duplicates.mjs";
 import { handleScoreboard } from "./scoreboard.mjs";
+import { handleHidden } from "./hidden.mjs";
+import { handleMixes, mixForInvite } from "./mixes.mjs";
+import { handleAvatars } from "./avatars.mjs";
+import { handleInvites, rememberPerson } from "./invites.mjs";
 
 const PORT = Number(process.env.JAM_PORT || 3001);
 const HOST = process.env.JAM_HOST || "127.0.0.1";
@@ -63,7 +82,9 @@ const sessions = new Map();
 const authCache = new Map();
 
 /**
- * @typedef {{ uid: string, addedBy: string, track: Record<string, string | number> }} QueueItem
+ * @typedef {{ uid: string, addedBy: string, track: Record<string, string | number>, fallback?: boolean }} QueueItem
+ *   `fallback`: from a playlist or album that was played, rather than a song
+ *   someone added: songs added play first, these when nothing else is queued.
  * @typedef {{ res: http.ServerResponse, username: string, clientId: string }} Listener
  * @typedef {{
  *   id: string,
@@ -103,6 +124,7 @@ async function authenticate(params) {
     return null;
   }
   authCache.set(key, { username: u, expires: Date.now() + AUTH_TTL_MS });
+  rememberPerson(u);
   return u;
 }
 
@@ -199,8 +221,15 @@ function sanitizeTracks(tracks, max = MAX_TRACKS_PER_ACTION) {
     });
 }
 
-function toItems(tracks, addedBy) {
-  return sanitizeTracks(tracks).map((track) => ({ uid: crypto.randomUUID(), addedBy, track }));
+function toItems(tracks, addedBy, fallback = false) {
+  return sanitizeTracks(tracks).map((track) => ({ uid: crypto.randomUUID(), addedBy, track, ...(fallback && { fallback: true }) }));
+}
+
+/** Where songs someone adds go: after the current one and the other added songs, before the playlist's. */
+function priorityInsertAt(session) {
+  const start = hasCurrent(session) ? session.currentIndex + 1 : session.queue.length;
+  const firstFallback = session.queue.findIndex((item, i) => i >= start && item.fallback);
+  return firstFallback === -1 ? session.queue.length : firstFallback;
 }
 
 class HttpError extends Error {
@@ -227,23 +256,35 @@ function insertItems(session, at, items) {
 
 /** Each handler mutates the session; the caller then broadcasts the new state. */
 const ACTIONS = {
-  // Anyone can add songs to the end of the queue.
+  // Anyone can add songs: they play before the playlist's (`fallback`: a
+  // whole playlist or album, which goes after everything else instead).
   add(session, username, body) {
-    const items = toItems(body.tracks, username);
+    const fallback = body.fallback === true;
+    const items = toItems(body.tracks, username, fallback);
     if (items.length === 0) throw new HttpError(400, "No tracks to add.");
     const wasIdle = !hasCurrent(session);
-    const start = session.queue.length;
-    insertItems(session, start, items);
-    if (wasIdle) startTrackAt(session, start);
+    const at = fallback ? session.queue.length : priorityInsertAt(session);
+    insertItems(session, at, items);
+    if (wasIdle) startTrackAt(session, at);
   },
 
-  // Play right now: insert after the current track and jump to it.
+  // Play right now: the first track plays at once. Several tracks are a
+  // playlist or album: the rest replaces the playlist that was playing, after
+  // the songs people added, which keep their place.
   playNow(session, username, body) {
     requireControl(session, username);
-    const items = toItems(body.tracks, username);
-    if (items.length === 0) throw new HttpError(400, "No tracks to play.");
+    const [first, ...rest] = toItems(body.tracks, username);
+    if (!first) throw new HttpError(400, "No tracks to play.");
     const at = hasCurrent(session) ? session.currentIndex + 1 : session.queue.length;
-    insertItems(session, at, items);
+    if (rest.length === 0) {
+      insertItems(session, at, [first]);
+    } else {
+      const upcoming = session.queue.slice(at);
+      const added = upcoming.filter((item) => !item.fallback);
+      const playlist = rest.map((item) => ({ ...item, fallback: true }));
+      if (at + 1 + added.length + playlist.length > MAX_QUEUE) throw new HttpError(400, "The Jam queue is full.");
+      session.queue.splice(at, upcoming.length, first, ...added, ...playlist);
+    }
     startTrackAt(session, at);
   },
 
@@ -324,7 +365,15 @@ const ACTIONS = {
       to = after + 1;
     }
     // Never before or onto the current song; it stays current.
-    session.queue.splice(Math.max(to, session.currentIndex + 1), 0, item);
+    const at = Math.max(to, session.currentIndex + 1);
+    // It joins the group it lands in: dropped among the playlist's songs it's
+    // one of them; among (or at the top, above) the added ones, it's added.
+    const before = at > session.currentIndex + 1 ? session.queue[at - 1] : null;
+    const after = session.queue[at];
+    const fallback = before ? Boolean(before.fallback) && (after ? Boolean(after.fallback) : true) : false;
+    if (fallback) item.fallback = true;
+    else delete item.fallback;
+    session.queue.splice(at, 0, item);
   },
 
   setGuestControl(session, username, body) {
@@ -545,6 +594,14 @@ async function handleDevices(req, res, url, username, sub) {
   return json(res, 204);
 }
 
+/** What an invite to a Jam or a mix is for, or null once it's over (see invites.mjs). */
+function inviteTarget(kind, code) {
+  if (kind === "mix") return mixForInvite(code);
+  const session = sessions.get(code);
+  if (!session) return null;
+  return { name: session.host, members: [session.host, ...members(session).map((m) => m.username)] };
+}
+
 async function handle(req, res) {
   const url = new URL(req.url, "http://jam.local");
   // The mobile app calls this server cross-origin. Any origin is fine: every
@@ -561,10 +618,28 @@ async function handle(req, res) {
   // Unauthenticated health check for container/Kubernetes probes.
   if (url.pathname === "/jam-api/healthz") return json(res, 200, { ok: true, sessions: sessions.size });
 
-  if (url.pathname === "/jam-api/duplicates" || url.pathname.startsWith("/jam-api/duplicates/")) {
+  if (url.pathname === "/jam-api/hidden" || url.pathname.startsWith("/jam-api/hidden/")) {
     const username = await authenticate(url.searchParams);
     if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });
-    return handleDuplicates(req, res, url, username, { navidromeUrl: NAVIDROME_URL, readJson });
+    return handleHidden(req, res, url, username, { readJson });
+  }
+
+  if (url.pathname === "/jam-api/avatars" || url.pathname.startsWith("/jam-api/avatars/")) {
+    const username = await authenticate(url.searchParams);
+    if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });
+    return handleAvatars(req, res, url, username);
+  }
+
+  if (url.pathname === "/jam-api/mixes" || url.pathname.startsWith("/jam-api/mixes/")) {
+    const username = await authenticate(url.searchParams);
+    if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });
+    return handleMixes(req, res, url, username, { readJson });
+  }
+
+  if (url.pathname === "/jam-api/invites" || url.pathname.startsWith("/jam-api/invites/")) {
+    const username = await authenticate(url.searchParams);
+    if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });
+    return handleInvites(req, res, url, username, { readJson, lookup: inviteTarget });
   }
 
   if (url.pathname === "/jam-api/scoreboard" || url.pathname.startsWith("/jam-api/scoreboard/")) {

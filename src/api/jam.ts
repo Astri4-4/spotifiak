@@ -23,6 +23,8 @@ export interface JamQueueItem {
   uid: string;
   addedBy: string;
   track: JamTrack;
+  /** From a playlist or album that was played: plays once no added song is waiting. */
+  fallback?: boolean;
 }
 
 export interface JamMember {
@@ -52,7 +54,7 @@ export interface JamSnapshot {
 }
 
 export type JamAction =
-  | { type: "add"; tracks: JamTrack[] }
+  | { type: "add"; tracks: JamTrack[]; fallback?: boolean }
   | { type: "playNow"; tracks: JamTrack[] }
   | { type: "jump"; uid: string }
   | { type: "pause" }

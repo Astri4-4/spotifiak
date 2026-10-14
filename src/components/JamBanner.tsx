@@ -2,6 +2,8 @@ import { useLocation } from "react-router-dom";
 import { usePlayer } from "@/context/PlayerContext";
 import { useJam } from "@/context/JamContext";
 import { CloseIcon, JamIcon } from "./icons";
+import { shownPanel, useRightPanel, WIDE_QUERY } from "@/lib/rightPanel";
+import { useMediaQuery } from "@/lib/useMediaQuery";
 
 /**
  * Jam messages shown on every page: the "tap to listen" prompt browsers
@@ -12,6 +14,10 @@ export function JamBanner() {
   const { audioBlocked, resumeAudio, inJam } = usePlayer();
   const { notice, clearNotice } = useJam();
   const { pathname } = useLocation();
+  // The Jam shows its own notices, as a page or beside it.
+  const wide = useMediaQuery(WIDE_QUERY);
+  const panel = useRightPanel();
+  const jamPanelShown = wide && shownPanel(panel, inJam) === "jam";
 
   if (inJam && audioBlocked) {
     return (
@@ -26,7 +32,7 @@ export function JamBanner() {
     );
   }
 
-  if (notice && pathname !== "/jam") {
+  if (notice && pathname !== "/jam" && !jamPanelShown) {
     return (
       <div className="mx-2 mt-1 flex flex-shrink-0 items-center justify-between gap-3 rounded-md bg-spotify-highlight-black px-4 py-2 text-sm md:mx-0 md:mt-0 md:rounded-none">
         <span className="flex min-w-0 items-center gap-2">

@@ -2,11 +2,13 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { FriendsIcon, SearchIcon } from "./icons";
-import { setFriendsPanelOpen, useFriendsPanelOpen } from "@/lib/friendsPanel";
+import { Avatar } from "./Avatar";
+import { InviteInbox } from "./InviteInbox";
+import { FRIENDS_QUERY, setRightPanel, useRightPanel } from "@/lib/rightPanel";
 
 export function TopBar() {
   const { username } = useAuth();
-  const friendsPanelOpen = useFriendsPanelOpen();
+  const friendsPanelOpen = useRightPanel() === "friends";
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
 
@@ -33,6 +35,7 @@ export function TopBar() {
         </div>
       </form>
 
+      <InviteInbox />
       {/* Narrow screens: the Friend activity page. Wide ones: re-open its panel if hidden. */}
       <Link
         to="/activity"
@@ -40,9 +43,9 @@ export function TopBar() {
         title="Friend activity"
         className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-spotify-gray hover:text-white ${friendsPanelOpen ? "xl:hidden" : ""}`}
         onClick={(e) => {
-          if (window.matchMedia("(min-width: 1280px)").matches) {
+          if (window.matchMedia(FRIENDS_QUERY).matches) {
             e.preventDefault();
-            setFriendsPanelOpen(true);
+            setRightPanel("friends");
           }
         }}
       >
@@ -52,9 +55,9 @@ export function TopBar() {
         to="/settings"
         aria-label="Settings"
         title="Settings"
-        className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-white/20 font-bold text-white transition hover:scale-105"
+        className="flex-shrink-0 rounded-full transition hover:scale-105"
       >
-        {username?.[0]?.toUpperCase() ?? "?"}
+        <Avatar username={username} className="h-8 w-8" />
       </Link>
     </header>
   );

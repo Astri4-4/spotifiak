@@ -41,15 +41,20 @@ Turn on **Discover** in Search to search Deezer instead of your library: listen 
 - Set the deemix server with `DEEMIX_URL` on the Spotifiak server, or from **Settings → Discover** (Navidrome admins only; saved in `JAM_DATA_DIR`, `/opt/jam/data` in the Docker image - mount a volume there to keep it). Leave it empty to turn Discover off.
 - The desktop and mobile apps use the Discover of their Jam server.
 
-## Remove duplicates
+## Library
 
-Albums and playlists have a **Remove duplicates** button: it finds the other files of their songs in your library (same title and artist, about the same length) and keeps the best copy - the album track (named `01 - Title`, as deemix and Lidarr do), else the single (at the top of deemix's download folder), else one in a downloaded playlist's folder, then the highest bitrate. The others are moved, for everyone, into the music folder's hidden `.spotifion-trash/<date>/` (Navidrome ignores it): nothing is deleted, so move files back to undo, and empty it when sure. It shows what it would move first. Afterwards, your own playlists are pointed at the copies kept (Navidrome only lets owners change a playlist; others' playlists keep pointing at the moved file).
+- **Artist pages** show their popular songs, albums apart from singles and EPs, a biography and similar artists in the library. Popular songs, the biography and similar artists come from Last.fm through Navidrome (`getTopSongs`, `getArtistInfo2`), so they need Last.fm set up there (`ND_LASTFM_APIKEY`/`ND_LASTFM_SECRET`); without it, the page shows the artist's songs you play the most instead.
+- **Sort and search**: Your Library (playlists, artists, every album), a playlist and Liked Songs can be searched and sorted (title, artist, album, duration, plays, recently added or played...). The sort is remembered on each device.
+- **Select several songs**: "Select" in a song's menu, or Ctrl/Cmd-click and Shift-click, then play, queue, like, add to a playlist or remove them from yours at once.
+- **Smart playlists**, worked out from your own listening each time they're opened (Navidrome keeps play counts per person): On Repeat (most played), Recently Played, Fresh in the Library (newest albums), Liked, Never Played and Forgotten Likes (not played in 3 months). Any of them can be saved as a regular playlist.
 
-It needs:
+## Hide duplicates
 
-- The music folder mounted read-write in the Spotifiak container, at `MUSIC_DIR` (see `docker-compose.yml`, or `deploy/k8s/music-volume.yaml` for an SMB share on Kubernetes). Without it, the button doesn't show.
-- `DEEMIX_FOLDER`: deemix's download folder within the music folder, if it's a subfolder (e.g. `Deezer`), so its singles are recognised.
-- Navidrome reporting real file paths, so its songs can be matched to files: `ND_SUBSONIC_DEFAULTREPORTREALPATH=true` on Navidrome. It only applies to players Navidrome creates afterwards, which is why the server asks under its own client name, `spotifion-files`; if that player already existed, turn on its "Report real path" in Navidrome's Players settings. If Navidrome reports the path as absolute and its music folder isn't `/music`, set `NAVIDROME_MUSIC_DIR` to it.
+Albums, artists and playlists have a **Hide duplicates** button, for when the library has the same song several times (an album's track and its single, a compilation, a downloaded playlist's folder). It finds the other copies of their songs (same title and artist, about the same length), keeps the best one - an album's track over a single, then the highest bitrate - and hides the others, after showing what it would hide.
+
+- It's only for you, and nothing changes in the library: no file is moved and no playlist is edited, so nothing breaks for anyone. A hidden copy disappears wherever the copy kept is listed too (or another copy of it already is), so lists, search and liked songs show the song once, while a playlist with only that copy still plays it. Albums left with only hidden copies (usually singles) disappear from artist pages and search.
+- Show them again from the same button ("Show again"), or all at once in **Settings → Library**.
+- The Jam server keeps the list (`server/hidden.mjs`), so it follows you on every device. It's saved in `JAM_DATA_DIR/hidden.json` (lost on restart without a writable one, like Mixes).
 
 ## Jam
 
@@ -59,6 +64,27 @@ Open **Jam** in the sidebar (or the tab bar on mobile) and start one, then share
 - Only the host controls playback (play/pause, skip, seek) unless they turn on *Let guests control playback*.
 - The host can end the Jam for everyone; guests can leave at any time. A Jam nobody is connected to is cleaned up after 15 minutes.
 - Listeners stay in sync to within a fraction of a second when Navidrome serves the original file. If Navidrome *transcodes* a track, the stream can't be seeked, so someone joining mid-song hears it from the start until the next track.
+
+## Mixes
+
+A mix blends a few people's most played songs into one playlist, like Spotify's Blend. Open **Mixes** in the sidebar (or **Your Library** on mobile), make one and share the invite link or code.
+
+- Navidrome only shows play counts to their owner, so each member's app works out their own top 50 songs (from their most played albums, topped up with liked songs) and sends them to the Jam server (`server/mixes.mjs`). Joining a mix is agreeing to share them with its members; others with the code only see who's in it.
+- Songs several members play open the mix, then everyone's songs take turns, up to 100. Your songs are refreshed when you open the mix, at most once a day.
+- The creator can also save it as a public Navidrome playlist, which everyone on the server can play from any Subsonic app. It's updated when they open the mix.
+- Mixes are saved in `JAM_DATA_DIR` (`/opt/jam/data` in the Docker image - mount a volume there to keep them). Without a writable one, they're lost when the server restarts.
+
+## Profile pictures
+
+Set yours in **Settings → Account**. The app crops the middle square of the picture, shrinks it to a 256px JPEG and uploads it to the Jam server (`server/avatars.mjs`), since Navidrome's API can't store one. It shows next to your name in the top bar, Jam and Friend activity; people without one get their initial. Pictures are saved in `JAM_DATA_DIR/avatars` (lost on restart without a writable one, like Mixes).
+
+## Invites
+
+Invite people to your Jam or a mix from inside the app: the Jam panel and a mix's page list everyone on the server, and **Invite** puts it in their inbox (the bell in the top bar, which pops up when something arrives). **Join** opens the Jam or the mix to join it, **Decline** removes it. The invite link and code still work for anyone else.
+
+- The Jam server (`server/invites.mjs`) carries them. Navidrome only lists its users to admins, so the people you can invite are everyone who has used an app with this server.
+- Anyone in a Jam or a mix can invite people to it. Invites go away once they're answered, the person joins, the Jam ends or the mix is deleted, or after a week.
+- Invites are saved in `JAM_DATA_DIR/invites.json` (lost on restart without a writable one, like Mixes). Apps check for new ones every 20 seconds while open.
 
 ## Local development
 
@@ -110,6 +136,7 @@ Things worth knowing:
 
 - **One replica only.** Jam sessions live in the Jam server's memory, so the Deployment runs `replicas: 1` with the `Recreate` strategy. Scaling out would put guests on pods that don't know the host's Jam. Redeploying or rescheduling the pod ends any running Jams.
 - **Locked-down by default.** The image is based on `nginx-unprivileged` and runs as uid 101, so it passes the `restricted` Pod Security Standard (non-root, no capabilities, read-only root filesystem with `emptyDir`s for `/etc/nginx/conf.d`, `/tmp` and `/var/cache/nginx`).
+- **Saved data.** Mixes and the deemix server set in Settings are kept in `JAM_DATA_DIR` (`/opt/jam/data`), on a small `ReadWriteOnce` volume from the default StorageClass (`data-volume.yaml`). The pod's `fsGroup: 101` makes it writable for the app; CSI drivers that apply fsGroup to every volume would also re-own the music share, which the SMB driver doesn't (it only applies it to `ReadWriteOnce` volumes).
 - **Probes.** Readiness hits `/jam-api/healthz` (nginx + Jam server); liveness hits `/healthz` (nginx only - the Jam server is restarted inside the container if it crashes).
 - **Ingress.** Jam's event stream is a long-lived Server-Sent Events connection. With ingress-nginx, keep the annotations from `ingress.yaml` (buffering off, 1h read timeout); other controllers need the equivalent settings, or Jam updates arrive late or the stream drops every minute.
 - **Navidrome in the same cluster?** Point `NAVIDROME_URL` at its Service, e.g. `http://navidrome.media.svc.cluster.local:4533`.
@@ -182,7 +209,9 @@ plus `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` (`spotifiak`) and `ANDROID
 
 ## Live updates (desktop and mobile)
 
-The desktop and mobile apps update their app code on their own, without reinstalling (or re-signing on iOS). Each release also carries the built web app (`spotifiak-web-<version>.zip`) and an `update.json`; a few seconds after launch the apps check the repo's latest release on GitHub, download a newer bundle in the background, and use it from the next launch (or right away with **Settings → Updates → Restart now**). Pre-releases aren't offered.
+The desktop and mobile apps update their app code on their own, without reinstalling (or re-signing on iOS). Each release also carries the built web app (`spotifiak-web-<version>.zip`) and an `update.json`; a few seconds after launch the apps check the repo's latest release on GitHub, download a newer bundle in the background, and use it from the next launch (or right away with **Settings → Updates → Restart now**).
+
+- **Beta versions**: **Settings → Updates → Get beta versions** also offers pre-releases (tags with a `-`, like `v0.7.0-beta.1`, which the release workflow publishes as pre-releases): the newest release by version, stable or not. Turning it off never downgrades; the next stable release takes over. Desktop installs from before this setting need a new install to get it.
 
 - **Desktop** (`electron/updates.mjs`): bundles go to the app's data directory (`updates/`) and the local server serves them instead of the bundled `dist/`.
 - **Android / iOS** (`src/lib/updates.ts`): [`@capgo/capacitor-updater`](https://github.com/Cap-go/capacitor-updater) in manual mode. All of Capgo's cloud endpoints (update checks, channels, statistics) are turned off in `capacitor.config.ts`; the app only talks to GitHub.

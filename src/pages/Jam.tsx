@@ -6,14 +6,17 @@ import { coverArtUrl } from "@/api/subsonic";
 import { parseJamCode, type JamQueueItem } from "@/api/jam";
 import { Loading } from "@/components/Loading";
 import { jamInviteOrigin } from "@/lib/servers";
+import { InviteFriends } from "@/components/InviteFriends";
 import { CheckIcon, CloseIcon, DragHandleIcon, JamIcon } from "@/components/icons";
+import { Avatar } from "@/components/Avatar";
 import { useDragReorder } from "@/lib/useDragReorder";
 
-export function Jam() {
+/** The Jam: a page on narrow screens; in the side panel (`panel`) on wide ones. */
+export function Jam({ panel = false }: { panel?: boolean }) {
   const { jamId, jam } = useJam();
-  if (!jamId) return <StartJam />;
+  if (!jamId) return <StartJam panel={panel} />;
   if (!jam) return <JoiningJam />;
-  return <JamSession />;
+  return <JamSession panel={panel} />;
 }
 
 /** Waiting for the first state; explains (and offers a way out) if the event stream keeps failing. */
@@ -38,7 +41,7 @@ function JoiningJam() {
   );
 }
 
-function StartJam() {
+function StartJam({ panel }: { panel: boolean }) {
   const { startJam, notice, clearNotice } = useJam();
   const navigate = useNavigate();
   const [starting, setStarting] = useState(false);
@@ -68,12 +71,12 @@ function StartJam() {
   }
 
   return (
-    <div className="mx-auto flex max-w-lg flex-col items-center gap-6 pt-10 text-center md:pt-16">
+    <div className={`mx-auto flex max-w-lg flex-col items-center gap-6 text-center ${panel ? "pt-4" : "pt-10 md:pt-16"}`}>
       <span className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-spotify-green to-spotify-green/40">
         <JamIcon className="h-10 w-10 text-on-accent" />
       </span>
       <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold sm:text-3xl">Start a Jam</h1>
+        <h1 className={`font-bold ${panel ? "text-xl" : "text-2xl sm:text-3xl"}`}>Start a Jam</h1>
         <p className="text-spotify-gray">
           Listen together in real time. Friends with an account on this Navidrome server can join from their own
           device, add songs to the queue and hear the same thing as you.
@@ -97,7 +100,7 @@ function StartJam() {
         <span className="h-px flex-1 bg-white/10" />
       </div>
 
-      <form onSubmit={handleJoin} className="flex w-full flex-col gap-2 sm:flex-row">
+      <form onSubmit={handleJoin} className={`flex w-full flex-col gap-2 ${panel ? "" : "sm:flex-row"}`}>
         <input
           value={code}
           onChange={(e) => {
@@ -120,7 +123,7 @@ function StartJam() {
   );
 }
 
-function JamSession() {
+function JamSession({ panel }: { panel: boolean }) {
   const { username } = useAuth();
   const { jam, status, isHost, canControl, notice, clearNotice, act, leaveJam, endJam } = useJam();
   const [confirmEnd, setConfirmEnd] = useState(false);
@@ -133,14 +136,14 @@ function JamSession() {
   const canRemove = (item: JamQueueItem) => canControl || item.addedBy === username;
 
   return (
-    <div className="flex flex-col gap-8 pt-4 md:pt-6">
+    <div className={`flex flex-col ${panel ? "gap-6" : "gap-8 pt-4 md:pt-6"}`}>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-4">
           <span className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-spotify-green to-spotify-green/40">
             <JamIcon className="h-7 w-7 text-on-accent" />
           </span>
           <div className="min-w-0">
-            <h1 className="truncate text-2xl font-bold sm:text-3xl">{isHost ? "Your Jam" : `${jam.host}'s Jam`}</h1>
+            <h1 className={`truncate font-bold ${panel ? "text-xl" : "text-2xl sm:text-3xl"}`}>{isHost ? "Your Jam" : `${jam.host}'s Jam`}</h1>
             <p className="flex items-center gap-2 text-sm text-spotify-gray">
               <span
                 className={`h-2 w-2 rounded-full ${status === "live" ? "bg-spotify-green" : "animate-pulse bg-yellow-400"}`}
@@ -182,17 +185,15 @@ function JamSession() {
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <InviteCard code={jam.id} />
+      <div className={`grid gap-4 ${panel ? "" : "lg:grid-cols-2"}`}>
+        <InviteCard code={jam.id} members={[jam.host, ...jam.members.map((m) => m.username)]} panel={panel} />
 
         <section className="rounded-lg bg-white/5 p-4 sm:p-5">
           <h2 className="mb-3 font-bold">Who's here</h2>
           <ul className="flex flex-wrap gap-2">
             {jam.members.map((m) => (
               <li key={m.clientId} className="flex items-center gap-2 rounded-full bg-white/10 py-1 pl-1 pr-3 text-sm">
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 font-bold text-white">
-                  {m.username[0]?.toUpperCase()}
-                </span>
+                <Avatar username={m.username} className="h-7 w-7" />
                 {m.username}
                 {m.username === jam.host && <span className="text-xs text-spotify-green">Host</span>}
                 {m.username === username && m.username !== jam.host && <span className="text-xs text-spotify-gray">You</span>}
@@ -224,9 +225,9 @@ function JamSession() {
       </div>
 
       <section>
-        <h2 className="mb-3 text-xl font-bold">Now playing</h2>
+        <h2 className={`mb-3 font-bold ${panel ? "text-base" : "text-xl"}`}>Now playing</h2>
         {nowPlaying ? (
-          <QueueRow item={nowPlaying} isCurrent playing={jam.playing} canJump={false} canRemove={canRemove(nowPlaying)} />
+          <QueueRow item={nowPlaying} isCurrent playing={jam.playing} canJump={false} canRemove={canRemove(nowPlaying)} panel={panel} />
         ) : (
           <p className="text-spotify-gray">
             Nothing yet.{" "}
@@ -239,50 +240,68 @@ function JamSession() {
       </section>
 
       {nextUp.length > 0 && (
-        <NextUp items={nextUp} after={nowPlaying} canMove={canControl} canRemove={canRemove} />
+        <NextUp items={nextUp} after={nowPlaying} canMove={canControl} canRemove={canRemove} panel={panel} />
       )}
     </div>
   );
 }
 
 /**
- * The songs coming up. Those who control playback can drag them into a new
- * order, shown at once until the Jam's next state confirms it.
+ * The songs coming up: those people added, then the playlist or album's,
+ * which play once nobody has added one. Those who control playback can drag
+ * them into a new order (and from one group to the other), shown at once
+ * until the Jam's next state confirms it.
  */
 function NextUp({
   items,
   after,
   canMove,
   canRemove,
+  panel,
 }: {
   items: JamQueueItem[];
   /** The song playing, which the first one follows. */
   after: JamQueueItem | null;
   canMove: boolean;
   canRemove: (item: JamQueueItem) => boolean;
+  panel: boolean;
 }) {
   const { jam, act } = useJam();
-  const [pending, setPending] = useState<{ version: number; order: string[] } | null>(null);
+  const [pending, setPending] = useState<{ version: number; order: JamQueueItem[] } | null>(null);
   // Only until the Jam's state changes (with this move, or anyone else's change).
-  const shown =
-    pending && pending.version === jam?.version
-      ? pending.order.map((uid) => items.find((i) => i.uid === uid)).filter((i): i is JamQueueItem => Boolean(i))
-      : items;
+  const shown = pending && pending.version === jam?.version ? pending.order : items;
 
   const { itemProps, handleProps } = useDragReorder((from, to) => {
     const order = [...shown];
     const [moved] = order.splice(from, 1);
-    order.splice(to, 0, moved);
-    if (jam) setPending({ version: jam.version, order: order.map((i) => i.uid) });
+    // Like the server: it joins the group it's dropped in.
+    const before = order[to - 1];
+    const next = order[to];
+    const fallback = before ? Boolean(before.fallback) && (next ? Boolean(next.fallback) : true) : false;
+    order.splice(to, 0, { ...moved, fallback });
+    if (jam) setPending({ version: jam.version, order });
     const afterUid = to === 0 ? (after?.uid ?? null) : order[to - 1].uid;
     void act({ type: "move", uid: moved.uid, afterUid });
   });
 
+  const heading = `font-bold ${panel ? "text-base" : "text-xl"}`;
+  const firstFallback = shown.findIndex((i) => i.fallback);
+
   return (
     <section>
-      <h2 className="mb-3 text-xl font-bold">Next up</h2>
+      {/* The headings sit between the rows, which stay one list, to drag from one group to the other. */}
       <div className="flex flex-col">
-        {shown.map((item, position) => (
+        {shown.flatMap((item, position) => [
+          position === 0 && firstFallback !== 0 && (
+            <h2 key="added" className={`mb-3 ${heading}`}>
+              Next in queue
+            </h2>
+          ),
+          position === firstFallback && (
+            <h2 key="fallback" className={`mb-3 ${heading} ${position > 0 ? "mt-6" : ""}`}>
+              Next from the playlist or album
+            </h2>
+          ),
           <div
             key={item.uid}
             {...(canMove ? itemProps(position) : {})}
@@ -298,10 +317,10 @@ function NextUp({
               </span>
             )}
             <div className="min-w-0 flex-1">
-              <QueueRow item={item} canJump={canMove} canRemove={canRemove(item)} />
+              <QueueRow item={item} canJump={canMove} canRemove={canRemove(item)} panel={panel} />
             </div>
-          </div>
-        ))}
+          </div>,
+        ])}
       </div>
     </section>
   );
@@ -313,12 +332,15 @@ function QueueRow({
   playing = false,
   canJump,
   canRemove,
+  panel = false,
 }: {
   item: JamQueueItem;
   isCurrent?: boolean;
   playing?: boolean;
   canJump: boolean;
   canRemove: boolean;
+  /** In the narrow side panel: who added it is a picture, named on hover. */
+  panel?: boolean;
 }) {
   const { act } = useJam();
   const { track } = item;
@@ -342,7 +364,13 @@ function QueueRow({
           </span>
         </span>
       </button>
-      <span className="hidden flex-shrink-0 text-xs text-spotify-gray sm:block">Added by {item.addedBy}</span>
+      {panel ? (
+        <span title={`Added by ${item.addedBy}`} className="flex-shrink-0">
+          <Avatar username={item.addedBy} className="h-6 w-6 text-xs" />
+        </span>
+      ) : (
+        <span className="hidden flex-shrink-0 text-xs text-spotify-gray sm:block">Added by {item.addedBy}</span>
+      )}
       {canRemove && (
         <button
           type="button"
@@ -357,7 +385,7 @@ function QueueRow({
   );
 }
 
-function InviteCard({ code }: { code: string }) {
+function InviteCard({ code, members, panel }: { code: string; members: string[]; panel: boolean }) {
   const [copied, setCopied] = useState(false);
   // The desktop and mobile apps' own origin isn't reachable by others, so
   // invite people to the web deployment whose Jam server they use instead.
@@ -380,9 +408,10 @@ function InviteCard({ code }: { code: string }) {
   return (
     <section className="rounded-lg bg-white/5 p-4 sm:p-5">
       <h2 className="mb-3 font-bold">Invite friends</h2>
-      <p className="mb-1 text-xs uppercase tracking-wide text-spotify-gray">Jam code</p>
+      <InviteFriends kind="jam" code={code} members={members} />
+      <p className="mb-1 mt-4 text-xs uppercase tracking-wide text-spotify-gray">Or share the Jam code</p>
       <p className="mb-4 font-mono text-3xl font-bold tracking-[0.3em]">{code}</p>
-      <div className="flex flex-col gap-2 sm:flex-row">
+      <div className={`flex flex-col gap-2 ${panel ? "" : "sm:flex-row"}`}>
         <input
           readOnly
           value={link}

@@ -3,13 +3,16 @@ import type {
   AlbumID3,
   AlbumWithSongsID3,
   ArtistID3,
+  ArtistInfo2,
   ArtistWithAlbumsID3,
   Child,
   IndexID3,
+  LyricsResult,
   NowPlayingEntry,
   Playlist,
   PlaylistWithSongs,
   SearchResult3,
+  StructuredLyrics,
 } from "@/types/subsonic";
 
 /** Verifies the given (or stored) credentials actually work. Throws SubsonicError/AuthError if not. */
@@ -52,11 +55,44 @@ export async function getArtist(id: string): Promise<ArtistWithAlbumsID3> {
   return res["subsonic-response"].artist;
 }
 
+/** Biography and similar artists (from Last.fm, if Navidrome has it set up); empty otherwise. */
+export async function getArtistInfo2(id: string, count = 12): Promise<ArtistInfo2> {
+  const res = await request<{
+    "subsonic-response": { artistInfo2?: ArtistInfo2 };
+  }>("getArtistInfo2", { id, count });
+  return res["subsonic-response"].artistInfo2 ?? {};
+}
+
+/** An artist's most popular songs in the library (from Last.fm, if Navidrome has it set up). */
+export async function getTopSongs(artist: string, count = 10): Promise<Child[]> {
+  const res = await request<{
+    "subsonic-response": { topSongs?: { song?: Child[] } };
+  }>("getTopSongs", { artist, count });
+  return res["subsonic-response"].topSongs?.song ?? [];
+}
+
+/** Every album, a page at a time (Subsonic serves at most 500 at once). */
+export async function getAllAlbums(): Promise<AlbumID3[]> {
+  const all: AlbumID3[] = [];
+  for (let offset = 0; ; offset += 500) {
+    const page = await getAlbumList2("alphabeticalByName", 500, offset);
+    all.push(...page);
+    if (page.length < 500) return all;
+  }
+}
+
 export async function getAlbum(id: string): Promise<AlbumWithSongsID3> {
   const res = await request<{
     "subsonic-response": { album: AlbumWithSongsID3 };
   }>("getAlbum", { id });
   return res["subsonic-response"].album;
+}
+
+export async function getSong(id: string): Promise<Child> {
+  const res = await request<{
+    "subsonic-response": { song: Child };
+  }>("getSong", { id });
+  return res["subsonic-response"].song;
 }
 
 export async function search3(
@@ -101,12 +137,13 @@ export async function deletePlaylist(id: string): Promise<void> {
 
 export async function updatePlaylist(
   playlistId: string,
-  options: { songIdToAdd?: string[]; songIndexToRemove?: number[]; name?: string; comment?: string } = {},
+  options: { songIdToAdd?: string[]; songIndexToRemove?: number[]; name?: string; comment?: string; public?: boolean } = {},
 ): Promise<void> {
   await request("updatePlaylist", {
     playlistId,
     name: options.name,
     comment: options.comment,
+    public: options.public,
     songIdToAdd: options.songIdToAdd,
     songIndexToRemove: options.songIndexToRemove,
   });
@@ -155,6 +192,25 @@ export async function startScan(): Promise<void> {
 
 export async function scrobble(id: string, submission = true): Promise<void> {
   await request("scrobble", { id, submission });
+}
+
+/**
+ * A song's lyrics from its tags or .lrc file (OpenSubsonic; Navidrome 0.52+).
+ * Throws on servers without the extension.
+ */
+export async function getLyricsBySongId(id: string): Promise<StructuredLyrics[]> {
+  const res = await request<{
+    "subsonic-response": { lyricsList?: { structuredLyrics?: StructuredLyrics[] } };
+  }>("getLyricsBySongId", { id });
+  return res["subsonic-response"].lyricsList?.structuredLyrics ?? [];
+}
+
+/** Plain-text lyrics, looked up by artist and title (the original Subsonic call). */
+export async function getLyrics(artist: string | undefined, title: string): Promise<LyricsResult | null> {
+  const res = await request<{
+    "subsonic-response": { lyrics?: LyricsResult };
+  }>("getLyrics", { artist, title });
+  return res["subsonic-response"].lyrics ?? null;
 }
 
 /** Builds an <img> src for cover art. Pass undefined/null coverArt to get a stable placeholder. */

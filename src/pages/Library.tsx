@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   coverArtUrl,
-  getAlbumList2,
+  getAllAlbums,
   getArtists,
   getPlaylists,
   type AlbumID3,
@@ -13,8 +13,13 @@ import { MediaCard, MediaRow } from "@/components/MediaCard";
 import { Loading } from "@/components/Loading";
 import { CardGrid } from "@/components/CardGrid";
 import { CreatePlaylistButton } from "@/components/CreatePlaylistButton";
-import { HeartIcon, PlusIcon } from "@/components/icons";
+import { HeartIcon, MixIcon, PlusIcon } from "@/components/icons";
 import { PHONE_QUERY, useMediaQuery } from "@/lib/useMediaQuery";
+import { ListControls } from "@/components/ListControls";
+import { byText, matches, useSortChoice, type SortOption } from "@/lib/listSort";
+import { useVisibleAlbums } from "@/lib/hidden";
+import { SMART_PLAYLISTS } from "@/lib/smartPlaylists";
+import { SmartPlaylistArt } from "@/components/SmartPlaylistArt";
 
 type Tab = "playlists" | "artists" | "albums";
 
@@ -32,6 +37,38 @@ const likedSongsArt = (
   </span>
 );
 
+const mixesArt = (
+  <span className="flex h-full w-full items-center justify-center rounded bg-gradient-to-br from-spotify-green to-fuchsia-500">
+    <MixIcon className="h-1/3 w-1/3 text-pure-white" />
+  </span>
+);
+
+const newest = (a: string | undefined, b: string | undefined) => byText(b, a);
+
+const PLAYLIST_SORTS: SortOption<Playlist>[] = [
+  { id: "changed", label: "Recently updated", compare: (a, b) => newest(a.changed, b.changed) },
+  { id: "created", label: "Recently created", compare: (a, b) => newest(a.created, b.created) },
+  { id: "name", label: "Name", compare: (a, b) => byText(a.name, b.name) },
+  { id: "songs", label: "Most songs", compare: (a, b) => b.songCount - a.songCount },
+];
+const ARTIST_SORTS: SortOption<ArtistID3>[] = [
+  { id: "name", label: "Name", compare: (a, b) => byText(a.name, b.name) },
+  { id: "albums", label: "Most albums", compare: (a, b) => (b.albumCount ?? 0) - (a.albumCount ?? 0) || byText(a.name, b.name) },
+];
+const ALBUM_SORTS: SortOption<AlbumID3>[] = [
+  { id: "name", label: "Name", compare: (a, b) => byText(a.name, b.name) },
+  { id: "artist", label: "Artist", compare: (a, b) => byText(a.artist, b.artist) || (a.year ?? 0) - (b.year ?? 0) },
+  { id: "added", label: "Recently added", compare: (a, b) => newest(a.created, b.created) },
+  { id: "played", label: "Recently played", compare: (a, b) => newest(a.played, b.played) },
+  { id: "year", label: "Release year", compare: (a, b) => (b.year ?? 0) - (a.year ?? 0) || byText(a.name, b.name) },
+];
+
+function sortAndFilter<T>(items: T[] | null, sort: SortOption<T>, query: string, fields: (item: T) => (string | undefined)[]) {
+  if (!items) return null;
+  const found = items.filter((item) => matches(query, ...fields(item)));
+  return sort.compare ? found.sort(sort.compare) : found;
+}
+
 const TABS: { id: Tab; label: string }[] = [
   { id: "playlists", label: "Playlists" },
   { id: "artists", label: "Artists" },
@@ -42,22 +79,43 @@ export function Library() {
   const [tab, setTab] = useState<Tab>("playlists");
   const [playlists, setPlaylists] = useState<Playlist[] | null>(null);
   const [artists, setArtists] = useState<ArtistID3[] | null>(null);
-  const [albums, setAlbums] = useState<AlbumID3[] | null>(null);
+  const [allAlbums, setAlbums] = useState<AlbumID3[] | null>(null);
+  const [query, setQuery] = useState("");
+  const [playlistSort, setPlaylistSort] = useSortChoice("library.playlists", PLAYLIST_SORTS);
+  const [artistSort, setArtistSort] = useSortChoice("library.artists", ARTIST_SORTS);
+  const [albumSort, setAlbumSort] = useSortChoice("library.albums", ALBUM_SORTS);
+  // Albums made only of hidden duplicates (singles...) aren't listed.
+  const visibleAlbums = useVisibleAlbums(allAlbums ?? []);
+  const albums = allAlbums && visibleAlbums;
 
   useEffect(() => {
     if (tab === "playlists" && playlists === null) getPlaylists().then(setPlaylists);
     if (tab === "artists" && artists === null) getArtists().then(setArtists);
-    if (tab === "albums" && albums === null) getAlbumList2("alphabeticalByName", 100).then(setAlbums);
-  }, [tab, playlists, artists, albums]);
+    if (tab === "albums" && allAlbums === null) getAllAlbums().then(setAlbums);
+  }, [tab, playlists, artists, allAlbums]);
+
+  const shownPlaylists = useMemo(() => sortAndFilter(playlists, playlistSort, query, (p) => [p.name, p.comment]), [playlists, playlistSort, query]);
+  const shownArtists = useMemo(() => sortAndFilter(artists, artistSort, query, (a) => [a.name]), [artists, artistSort, query]);
+  const shownAlbums = useMemo(() => sortAndFilter(albums, albumSort, query, (a) => [a.name, a.artist]), [albums, albumSort, query]);
+
+  // Liked Songs, Mixes and the smart playlists, before the playlists.
+  const specials =
+    tab === "playlists"
+      ? [
+          { to: "/liked", art: likedSongsArt, title: "Liked Songs", subtitle: "Playlist" },
+          { to: "/mixes", art: mixesArt, title: "Mixes", subtitle: "Blended with friends" },
+          ...SMART_PLAYLISTS.map((p) => ({ to: `/smart/${p.id}`, art: <SmartPlaylistArt playlist={p} />, title: p.name, subtitle: p.description })),
+        ].filter((item) => matches(query, item.title))
+      : [];
 
   // Phones get a compact list, larger screens a grid of cards.
   const isPhone = useMediaQuery(PHONE_QUERY);
   const items: LibraryItem[] | null =
     tab === "playlists"
-      ? (playlists?.map((p) => ({ to: `/playlist/${p.id}`, image: coverArtUrl(p.coverArt), title: p.name, subtitle: `${p.songCount} songs` })) ?? null)
+      ? (shownPlaylists?.map((p) => ({ to: `/playlist/${p.id}`, image: coverArtUrl(p.coverArt), title: p.name, subtitle: `${p.songCount} songs` })) ?? null)
       : tab === "artists"
-        ? (artists?.map((a) => ({ to: `/artist/${a.id}`, image: coverArtUrl(a.coverArt), title: a.name, subtitle: "Artist", round: true })) ?? null)
-        : (albums?.map((a) => ({ to: `/album/${a.id}`, image: coverArtUrl(a.coverArt), title: a.name, subtitle: a.artist })) ?? null);
+        ? (shownArtists?.map((a) => ({ to: `/artist/${a.id}`, image: coverArtUrl(a.coverArt), title: a.name, subtitle: "Artist", round: true })) ?? null)
+        : (shownAlbums?.map((a) => ({ to: `/album/${a.id}`, image: coverArtUrl(a.coverArt), title: a.name, subtitle: a.artist })) ?? null);
 
   return (
     <div className="pt-4 md:pt-6">
@@ -74,7 +132,10 @@ export function Library() {
         {TABS.map((t) => (
           <button
             key={t.id}
-            onClick={() => setTab(t.id)}
+            onClick={() => {
+              setTab(t.id);
+              setQuery("");
+            }}
             className={`flex-shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${
               tab === t.id ? "bg-white text-black" : "bg-spotify-highlight-black text-white hover:bg-white/20"
             }`}
@@ -84,26 +145,42 @@ export function Library() {
         ))}
       </div>
 
+      <div className="mb-4 md:mb-6">
+        {tab === "playlists" ? (
+          <ListControls query={query} onQuery={setQuery} placeholder="Search in playlists" sort={playlistSort} sorts={PLAYLIST_SORTS} onSort={setPlaylistSort} />
+        ) : tab === "artists" ? (
+          <ListControls query={query} onQuery={setQuery} placeholder="Search in artists" sort={artistSort} sorts={ARTIST_SORTS} onSort={setArtistSort} />
+        ) : (
+          <ListControls query={query} onQuery={setQuery} placeholder="Search in albums" sort={albumSort} sorts={ALBUM_SORTS} onSort={setAlbumSort} />
+        )}
+      </div>
+
       {items === null ? (
         <Loading />
       ) : isPhone ? (
         <div className="flex flex-col">
-          {tab === "playlists" && <MediaRow to="/liked" image={likedSongsArt} title="Liked Songs" subtitle="Playlist" />}
+          {specials.map((item) => (
+            <MediaRow key={item.to} to={item.to} image={item.art} title={item.title} subtitle={item.subtitle} />
+          ))}
           {items.map((item) => (
             <MediaRow key={item.to} {...item} />
           ))}
         </div>
       ) : (
         <CardGrid>
-          {tab === "playlists" && (
+          {specials.map((item) => (
             <Link
-              to="/liked"
-              className="flex flex-col gap-3 rounded-md bg-spotify-elevated-black/60 p-3 transition-colors hover:bg-spotify-highlight-black sm:p-4"
+              key={item.to}
+              to={item.to}
+              className="flex min-w-0 flex-col gap-3 rounded-md bg-spotify-elevated-black/60 p-3 transition-colors hover:bg-spotify-highlight-black sm:p-4"
             >
-              <span className="aspect-square w-full shadow-lg">{likedSongsArt}</span>
-              <p className="truncate font-semibold text-white">Liked Songs</p>
+              <span className="aspect-square w-full shadow-lg">{item.art}</span>
+              <span className="min-w-0">
+                <p className="truncate font-semibold text-white">{item.title}</p>
+                <p className="mt-1 line-clamp-2 text-sm text-spotify-gray">{item.subtitle}</p>
+              </span>
             </Link>
-          )}
+          ))}
           {items.map((item) => (
             <MediaCard key={item.to} {...item} />
           ))}

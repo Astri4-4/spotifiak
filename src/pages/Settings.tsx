@@ -5,11 +5,15 @@ import { useJam } from "@/context/JamContext";
 import { useConnect } from "@/context/PlayerContext";
 import { defaultDeviceName } from "@/lib/device";
 import { setShareListening, useShareListening } from "@/lib/sharing";
+import { setOnlineLyrics, useOnlineLyrics } from "@/lib/lyrics";
+import { showHiddenAgain, useHidden } from "@/lib/hidden";
 import { SubsonicError } from "@/api/client";
 import { ping } from "@/api/subsonic";
 import { checkJamServer } from "@/api/jam";
 import { leaveScoreboard } from "@/api/scoreboard";
 import { CheckIcon, LogoutIcon } from "@/components/icons";
+import { Avatar } from "@/components/Avatar";
+import { removeMyAvatar, setMyAvatar, useAvatarUrl } from "@/lib/avatars";
 import { setShortcutsOpen } from "@/lib/shortcutsDialog";
 import { setDiscoverConfig, useDiscoverConfig } from "@/lib/discover";
 import { setDiscoverUrl } from "@/api/discover";
@@ -18,6 +22,9 @@ import { ACCENT_COLORS, resolveTheme, setTheme, THEMES, useTheme, type Theme } f
 import {
   applyUpdate,
   checkForUpdates,
+  getPrerelease,
+  prereleaseSupported,
+  setPrerelease,
   updatesSupported,
   useUpdateStatus,
   type UpdateStatus,
@@ -37,10 +44,11 @@ export function Settings() {
 
       <Section title="Account">
         <div className="flex items-center gap-4">
-          <span className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-white/20 text-lg font-bold">
-            {username?.[0]?.toUpperCase() ?? "?"}
-          </span>
-          <p className="min-w-0 flex-1 truncate font-semibold">{username}</p>
+          <Avatar username={username} className="h-16 w-16 text-2xl" />
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-semibold">{username}</p>
+            {username && <ProfilePictureButtons username={username} />}
+          </div>
           <button
             type="button"
             onClick={logout}
@@ -65,6 +73,11 @@ export function Settings() {
 
       <Section title="Privacy">
         <ShareListeningToggle />
+        <OnlineLyricsToggle />
+      </Section>
+
+      <Section title="Library">
+        <HiddenDuplicates />
       </Section>
 
       <Section title="Appearance">
@@ -184,6 +197,171 @@ function ShareListeningToggle() {
           setShareListening(e.target.checked);
           if (!e.target.checked) leaveScoreboard().catch(() => void 0);
         }}
+        className="peer sr-only"
+      />
+      <span
+        aria-hidden
+        className="relative h-6 w-11 flex-shrink-0 rounded-full bg-white/30 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-pure-white after:shadow after:transition peer-checked:bg-spotify-green peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-white"
+      />
+    </label>
+  );
+}
+
+/** Choose, replace or remove your profile picture. */
+function ProfilePictureButtons({ username }: { username: string }) {
+  const hasPicture = useAvatarUrl(username) !== null;
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function run(task: () => Promise<void>) {
+    setBusy(true);
+    setError(null);
+    try {
+      await task();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-1">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+        <label className={`cursor-pointer font-semibold text-spotify-gray hover:text-white ${busy ? "pointer-events-none opacity-50" : ""}`}>
+          {busy ? "Saving…" : hasPicture ? "Change picture" : "Add a picture"}
+          <input
+            type="file"
+            accept="image/*"
+            className="sr-only"
+            disabled={busy}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) void run(() => setMyAvatar(username, file));
+            }}
+          />
+        </label>
+        {hasPicture && !busy && (
+          <button
+            type="button"
+            onClick={() => void run(() => removeMyAvatar(username))}
+            className="font-semibold text-spotify-gray hover:text-white"
+          >
+            Remove
+          </button>
+        )}
+      </div>
+      {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
+    </div>
+  );
+}
+
+/** How many duplicates you've hidden ("Hide duplicates" on albums, artists and playlists), to show them all again. */
+function HiddenDuplicates() {
+  const hidden = useHidden();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const songs = Object.keys(hidden.songs).length;
+  const albums = hidden.albums.length;
+
+  async function showAll() {
+    setBusy(true);
+    setError(null);
+    try {
+      await showHiddenAgain({ all: true });
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold">Hidden duplicates</p>
+          <p className="text-sm text-spotify-gray">
+            {songs || albums
+              ? `${songs} song${songs === 1 ? "" : "s"}${albums ? ` and ${albums} album${albums === 1 ? "" : "s"}` : ""} hidden, for you only.`
+              : 'None. Use "Hide duplicates" on an album, artist or playlist to see each song once.'}
+          </p>
+        </div>
+        {(songs > 0 || albums > 0) && (
+          <button
+            type="button"
+            onClick={() => void showAll()}
+            disabled={busy}
+            className="flex-shrink-0 rounded-full border border-white/40 px-4 py-2 text-sm font-bold hover:border-white disabled:opacity-60"
+          >
+            Show all again
+          </button>
+        )}
+      </div>
+      {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+    </div>
+  );
+}
+
+/** Opt in to pre-releases (beta versions) of the app from GitHub. */
+function PrereleaseToggle() {
+  const [on, setOn] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (prereleaseSupported) void getPrerelease().then(setOn);
+  }, []);
+
+  if (!prereleaseSupported) {
+    return <p className="text-xs text-spotify-gray">Install the latest version of the app to be able to get beta versions.</p>;
+  }
+
+  async function change(value: boolean) {
+    setOn(value);
+    await setPrerelease(value);
+  }
+
+  return (
+    <label className="flex cursor-pointer items-center justify-between gap-4">
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold">Get beta versions</span>
+        <span className="block text-xs text-spotify-gray">
+          Also update to pre-releases from GitHub: new features sooner, but they may have bugs. Turning it off doesn't go
+          back to an older version; the next stable one replaces it.
+        </span>
+      </span>
+      <input
+        type="checkbox"
+        role="switch"
+        checked={on ?? false}
+        disabled={on === null}
+        onChange={(e) => void change(e.target.checked)}
+        className="peer sr-only"
+      />
+      <span
+        aria-hidden
+        className="relative h-6 w-11 flex-shrink-0 rounded-full bg-white/30 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-pure-white after:shadow after:transition peer-checked:bg-spotify-green peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-white"
+      />
+    </label>
+  );
+}
+
+function OnlineLyricsToggle() {
+  const online = useOnlineLyrics();
+  return (
+    <label className="mt-4 flex cursor-pointer items-center justify-between gap-4">
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold">Find lyrics online</span>
+        <span className="block text-xs text-spotify-gray">
+          When your server has no synced lyrics for a song, look them up on LRCLIB (lrclib.net), which is sent the
+          song's title, artist and album.
+        </span>
+      </span>
+      <input
+        type="checkbox"
+        role="switch"
+        checked={online}
+        onChange={(e) => setOnlineLyrics(e.target.checked)}
         className="peer sr-only"
       />
       <span
@@ -415,6 +593,7 @@ function UpdateSettings() {
           </button>
         )}
       </div>
+      <PrereleaseToggle />
       <p className="text-xs text-spotify-gray">
         Updates to the app itself download automatically. Some releases also need a new install of the app, which you'll be told about here.
       </p>

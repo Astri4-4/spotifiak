@@ -4,10 +4,11 @@ import { coverArtUrl, createPlaylist, updatePlaylist } from "@/api/subsonic";
 import { usePlayer } from "@/context/PlayerContext";
 import { useAuth } from "@/context/AuthContext";
 import { refreshPlaylists, usePlaylists } from "@/lib/playlists";
+import { copySongLink } from "@/lib/share";
 import { closeSongMenu, showToast, useSongMenuState, type SongMenuRequest } from "@/lib/songMenu";
 import { useTrackStar } from "@/lib/trackStar";
 import { useMediaQuery } from "@/lib/useMediaQuery";
-import { ChevronLeftIcon, ChevronRightIcon, HeartIcon, PlusIcon, QueueAddIcon, QueueIcon } from "./icons";
+import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, HeartIcon, PlusIcon, QueueAddIcon, QueueIcon, ShareIcon } from "./icons";
 
 /** The song menu and its confirmations, for the whole app (see lib/songMenu.ts). */
 export function SongMenu() {
@@ -112,6 +113,7 @@ function MainItems({
   const { track } = request;
   const { inJam, addNext, enqueue } = usePlayer();
   const own = useTrackStar(track);
+  const { username } = useAuth();
   const navigate = useNavigate();
   const starred = request.starred ?? own.isStarred;
 
@@ -155,6 +157,23 @@ function MainItems({
       >
         {starred ? "Remove from Liked Songs" : "Save to Liked Songs"}
       </Item>
+      <Item
+        large={large}
+        icon={<ShareIcon className="h-4 w-4" />}
+        onClick={() => {
+          closeSongMenu();
+          void copySongLink(track.id, username).then((ok) =>
+            showToast(ok ? "Link copied: send it to someone on this server" : "Couldn't copy the link"),
+          );
+        }}
+      >
+        Share
+      </Item>
+      {request.onSelect && (
+        <Item large={large} icon={<CheckIcon className="h-4 w-4" />} onClick={() => run(request.onSelect!)}>
+          Select
+        </Item>
+      )}
       {(track.albumId || track.artistId) && <hr className="my-1 border-white/10" />}
       {track.albumId && (
         <Item large={large} onClick={() => run(() => navigate(`/album/${track.albumId}`))}>

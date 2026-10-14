@@ -1,8 +1,12 @@
 import { NavLink } from "react-router-dom";
 import { usePlaylists } from "@/lib/playlists";
-import { HeartIcon, HomeIcon, JamIcon, LibraryIcon, PlusIcon, SearchIcon } from "./icons";
+import { HeartIcon, HomeIcon, JamIcon, LibraryIcon, MixIcon, PlusIcon, SearchIcon } from "./icons";
 import { useJam } from "@/context/JamContext";
+import { isWide, openOrCloseRightPanel, shownPanel, useRightPanel, WIDE_QUERY } from "@/lib/rightPanel";
+import { useMediaQuery } from "@/lib/useMediaQuery";
 import { CreatePlaylistButton } from "./CreatePlaylistButton";
+import { SmartPlaylistArt } from "./SmartPlaylistArt";
+import { SMART_PLAYLISTS } from "@/lib/smartPlaylists";
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `flex items-center gap-4 rounded-md px-3 py-2 font-semibold transition-colors ${
@@ -12,6 +16,9 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
 export function Sidebar() {
   const playlists = usePlaylists() ?? [];
   const { jamId } = useJam();
+  // Wide screens open the Jam beside the page.
+  const wide = useMediaQuery(WIDE_QUERY);
+  const jamPanelOpen = shownPanel(useRightPanel(), jamId !== null) === "jam";
 
   return (
     <aside className="hidden h-full w-56 flex-shrink-0 flex-col gap-2 md:flex lg:w-64 xl:w-72">
@@ -25,10 +32,23 @@ export function Sidebar() {
             <SearchIcon className="h-6 w-6" />
             Search
           </NavLink>
-          <NavLink to="/jam" className={navLinkClass}>
+          <NavLink
+            to="/jam"
+            onClick={(e) => {
+              if (isWide()) {
+                e.preventDefault();
+                openOrCloseRightPanel("jam", jamId !== null);
+              }
+            }}
+            className={({ isActive }) => navLinkClass({ isActive: wide ? jamPanelOpen : isActive })}
+          >
             <JamIcon className="h-6 w-6" />
             Jam
             {jamId && <span className="ml-auto h-2 w-2 rounded-full bg-spotify-green" aria-label="In a Jam" />}
+          </NavLink>
+          <NavLink to="/mixes" className={navLinkClass}>
+            <MixIcon className="h-6 w-6" />
+            Mixes
           </NavLink>
         </nav>
       </div>
@@ -56,6 +76,24 @@ export function Sidebar() {
             </span>
             Liked Songs
           </NavLink>
+
+          {SMART_PLAYLISTS.map((p) => (
+            <NavLink
+              key={p.id}
+              to={`/smart/${p.id}`}
+              title={p.description}
+              className={({ isActive }) =>
+                `flex flex-shrink-0 items-center gap-3 rounded-md px-2 py-1.5 text-sm hover:bg-white/10 hover:text-white ${
+                  isActive ? "text-white" : "text-spotify-gray"
+                }`
+              }
+            >
+              <span className="h-8 w-8 flex-shrink-0">
+                <SmartPlaylistArt playlist={p} />
+              </span>
+              <span className="truncate">{p.name}</span>
+            </NavLink>
+          ))}
 
           {playlists.map((playlist) => (
             <NavLink

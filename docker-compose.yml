@@ -13,15 +13,9 @@ services:
       # Optional: deemix, for Discover (download music into the library). Only
       # this container talks to it, so it can stay on your home network.
       DEEMIX_URL: ${DEEMIX_URL:-}
-      # Optional: "Remove duplicates" needs the music folder, read-write, at
-      # MUSIC_DIR (uncomment the volume below), and Navidrome reporting real
-      # file paths (ND_SUBSONIC_DEFAULTREPORTREALPATH=true on Navidrome).
-      # MUSIC_DIR: /music
-      # DEEMIX_FOLDER: Deezer   # deemix's download folder within it, if a subfolder
     volumes:
       # Keeps settings changed from the app (the deemix server) across restarts.
       - spotifion-data:/opt/jam/data
-      # - /path/to/your/music:/music
     ports:
       - "8080:8080"
     # If you're fronting this with Traefik/Caddy/nginx-proxy instead of the

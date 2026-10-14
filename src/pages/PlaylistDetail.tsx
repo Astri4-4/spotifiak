@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   deletePlaylist,
@@ -20,8 +20,14 @@ import { DetailHeader, PlayButton, ShufflePlayButton } from "@/components/Detail
 import { CloseIcon, DragHandleIcon } from "@/components/icons";
 import { shuffled } from "@/lib/shuffle";
 import { refreshPlaylists } from "@/lib/playlists";
+import { setStarred } from "@/lib/trackStar";
 import { useDragReorder } from "@/lib/useDragReorder";
-import { RemoveDuplicatesButton } from "@/components/RemoveDuplicatesButton";
+import { HideDuplicatesButton } from "@/components/HideDuplicatesButton";
+import { useHidden, visibleIndices } from "@/lib/hidden";
+import { ListControls } from "@/components/ListControls";
+import { SONG_SORTS, songFields, sortedIndices, useSortChoice } from "@/lib/listSort";
+
+const NO_SONGS: Child[] = [];
 
 export function PlaylistDetail() {
   const { id } = useParams<{ id: string }>();
@@ -35,6 +41,19 @@ export function PlaylistDetail() {
   // Edits are saved one after the other, in the order they were made, since
   // Subsonic removes songs by position.
   const savingRef = useRef(Promise.resolve());
+  const hidden = useHidden();
+  const songs: Child[] = playlist?.entry ?? NO_SONGS;
+  // Hidden duplicates aren't shown (but stay in the playlist: editing shows everything).
+  const shown = useMemo(() => visibleIndices(songs, hidden), [songs, hidden]);
+  const visible = useMemo(() => shown.map((i) => songs[i]), [shown, songs]);
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useSortChoice("playlist", SONG_SORTS);
+  // What's listed, as positions in the playlist: found by the search, in the chosen order.
+  const order = useMemo(
+    () => sortedIndices(visible, sort, query, songFields).map((i) => shown[i]),
+    [visible, sort, query, shown],
+  );
+  const listed = useMemo(() => order.map((i) => songs[i]), [order, songs]);
 
   function load(playlistId: string) {
     getPlaylist(playlistId).then((p) => {
@@ -48,12 +67,11 @@ export function PlaylistDetail() {
     setPlaylist(null);
     setEditing(false);
     setSaveError(null);
+    setQuery("");
     load(id);
   }, [id]);
 
   if (!playlist || !id) return <Loading />;
-
-  const songs: Child[] = playlist.entry ?? [];
   // Navidrome only lets the owner change a playlist.
   const canEdit = !playlist.owner || playlist.owner === username;
 
@@ -68,13 +86,16 @@ export function PlaylistDetail() {
     });
   }
 
-  function removeSong(index: number) {
-    if (!playlist) return;
-    const entry = songs.filter((_, i) => i !== index);
+  function removeSongs(indices: number[]) {
+    if (!playlist || !indices.length) return;
+    const gone = new Set(indices);
+    const entry = songs.filter((_, i) => !gone.has(i));
     edit({ ...playlist, entry, songCount: entry.length }, () =>
-      updatePlaylist(id!, { songIndexToRemove: [index] }),
+      updatePlaylist(id!, { songIndexToRemove: [...gone] }),
     );
   }
+
+  const removeSong = (index: number) => removeSongs([index]);
 
   function moveSong(from: number, to: number) {
     if (!playlist) return;
@@ -100,11 +121,13 @@ export function PlaylistDetail() {
       else next.add(track.id);
       return next;
     });
+    setStarred(track.id, !isStarred);
     try {
       if (isStarred) await unstar({ id: [track.id] });
       else await star({ id: [track.id] });
     } catch {
       // revert on failure
+      setStarred(track.id, isStarred);
       setStarredIds((prev) => {
         const next = new Set(prev);
         if (isStarred) next.add(track.id);
@@ -131,16 +154,16 @@ export function PlaylistDetail() {
         meta={
           <>
             {playlist.comment && <span className="mb-1 block">{playlist.comment}</span>}
-            {songs.length} songs
+            {visible.length} songs
             {playlist.duration ? ` · ${formatDurationLong(playlist.duration)}` : ""}
           </>
         }
       />
       <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3 sm:mt-6">
-        <PlayButton onClick={() => playQueue(songs)} disabled={songs.length === 0} label="Play playlist" />
+        <PlayButton onClick={() => playQueue(listed)} disabled={listed.length === 0} label="Play playlist" />
         <ShufflePlayButton
-          onClick={() => playQueue(shuffled(songs))}
-          disabled={songs.length === 0}
+          onClick={() => playQueue(shuffled(listed))}
+          disabled={listed.length === 0}
           label="Shuffle playlist"
         />
         {canEdit && (
@@ -156,7 +179,7 @@ export function PlaylistDetail() {
             {editing ? "Done" : "Edit playlist"}
           </button>
         )}
-        <RemoveDuplicatesButton kind="playlist" id={id} onDone={() => load(id)} />
+        <HideDuplicatesButton what="playlist" songs={() => songs} />
         <button
           type="button"
           onClick={handleDelete}
@@ -183,14 +206,33 @@ export function PlaylistDetail() {
         ) : editing ? (
           <EditableSongs songs={songs} onRemove={removeSong} onMove={moveSong} />
         ) : (
-          <TrackList
-            tracks={songs}
-            showAlbum
-            showCover
-            starredIds={starredIds}
-            onToggleStar={handleToggleStar}
-            onRemoveFromPlaylist={canEdit ? removeSong : undefined}
-          />
+          <>
+            {/* Only worth it past a screenful. */}
+            {visible.length > 10 && (
+              <div className="mb-4">
+                <ListControls
+                  query={query}
+                  onQuery={setQuery}
+                  placeholder="Search in playlist"
+                  sort={sort}
+                  sorts={SONG_SORTS}
+                  onSort={setSort}
+                />
+              </div>
+            )}
+            {query && listed.length === 0 && (
+              <p className="text-spotify-gray">Nothing in this playlist matches &ldquo;{query}&rdquo;.</p>
+            )}
+            <TrackList
+              tracks={listed}
+              showAlbum
+              showCover
+              starredIds={starredIds}
+              onToggleStar={handleToggleStar}
+              onRemoveFromPlaylist={canEdit ? (i) => removeSong(order[i]) : undefined}
+              onRemoveManyFromPlaylist={canEdit ? (list) => removeSongs(list.map((i) => order[i])) : undefined}
+            />
+          </>
         )}
       </div>
     </div>

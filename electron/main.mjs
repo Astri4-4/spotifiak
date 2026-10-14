@@ -13,7 +13,17 @@ import http from "node:http";
 import https from "node:https";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { applyUpdate, checkForUpdates, getStatus, markReady, onUpdateStatus, resolveWebRoot, watchTrial } from "./updates.mjs";
+import {
+  applyUpdate,
+  checkForUpdates,
+  getPrerelease,
+  getStatus,
+  markReady,
+  onUpdateStatus,
+  resolveWebRoot,
+  setPrerelease,
+  watchTrial,
+} from "./updates.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST_DIR = path.join(__dirname, "..", "dist");
@@ -223,6 +233,8 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.handle("update:status", () => getStatus());
     ipcMain.handle("update:check", () => checkForUpdates());
     ipcMain.handle("update:apply", () => applyUpdate());
+    ipcMain.handle("update:get-prerelease", () => getPrerelease());
+    ipcMain.handle("update:set-prerelease", (_event, value) => setPrerelease(value));
 
     webRoot = resolveWebRoot(DIST_DIR);
 

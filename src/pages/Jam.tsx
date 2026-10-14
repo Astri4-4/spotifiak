@@ -246,8 +246,10 @@ function JamSession({ panel }: { panel: boolean }) {
 }
 
 /**
- * The songs coming up. Those who control playback can drag them into a new
- * order, shown at once until the Jam's next state confirms it.
+ * The songs coming up: those people added, then the playlist or album's,
+ * which play once nobody has added one. Those who control playback can drag
+ * them into a new order (and from one group to the other), shown at once
+ * until the Jam's next state confirms it.
  */
 function NextUp({
   items,
@@ -264,27 +266,41 @@ function NextUp({
   panel: boolean;
 }) {
   const { jam, act } = useJam();
-  const [pending, setPending] = useState<{ version: number; order: string[] } | null>(null);
+  const [pending, setPending] = useState<{ version: number; order: JamQueueItem[] } | null>(null);
   // Only until the Jam's state changes (with this move, or anyone else's change).
-  const shown =
-    pending && pending.version === jam?.version
-      ? pending.order.map((uid) => items.find((i) => i.uid === uid)).filter((i): i is JamQueueItem => Boolean(i))
-      : items;
+  const shown = pending && pending.version === jam?.version ? pending.order : items;
 
   const { itemProps, handleProps } = useDragReorder((from, to) => {
     const order = [...shown];
     const [moved] = order.splice(from, 1);
-    order.splice(to, 0, moved);
-    if (jam) setPending({ version: jam.version, order: order.map((i) => i.uid) });
+    // Like the server: it joins the group it's dropped in.
+    const before = order[to - 1];
+    const next = order[to];
+    const fallback = before ? Boolean(before.fallback) && (next ? Boolean(next.fallback) : true) : false;
+    order.splice(to, 0, { ...moved, fallback });
+    if (jam) setPending({ version: jam.version, order });
     const afterUid = to === 0 ? (after?.uid ?? null) : order[to - 1].uid;
     void act({ type: "move", uid: moved.uid, afterUid });
   });
 
+  const heading = `font-bold ${panel ? "text-base" : "text-xl"}`;
+  const firstFallback = shown.findIndex((i) => i.fallback);
+
   return (
     <section>
-      <h2 className={`mb-3 font-bold ${panel ? "text-base" : "text-xl"}`}>Next up</h2>
+      {/* The headings sit between the rows, which stay one list, to drag from one group to the other. */}
       <div className="flex flex-col">
-        {shown.map((item, position) => (
+        {shown.flatMap((item, position) => [
+          position === 0 && firstFallback !== 0 && (
+            <h2 key="added" className={`mb-3 ${heading}`}>
+              Next in queue
+            </h2>
+          ),
+          position === firstFallback && (
+            <h2 key="fallback" className={`mb-3 ${heading} ${position > 0 ? "mt-6" : ""}`}>
+              Next from the playlist or album
+            </h2>
+          ),
           <div
             key={item.uid}
             {...(canMove ? itemProps(position) : {})}
@@ -302,8 +318,8 @@ function NextUp({
             <div className="min-w-0 flex-1">
               <QueueRow item={item} canJump={canMove} canRemove={canRemove(item)} panel={panel} />
             </div>
-          </div>
-        ))}
+          </div>,
+        ])}
       </div>
     </section>
   );

@@ -67,6 +67,14 @@ A mix blends a few people's most played songs into one playlist, like Spotify's 
 
 Set yours in **Settings → Account**. The app crops the middle square of the picture, shrinks it to a 256px JPEG and uploads it to the Jam server (`server/avatars.mjs`), since Navidrome's API can't store one. It shows next to your name in the top bar, Jam and Friend activity; people without one get their initial. Pictures are saved in `JAM_DATA_DIR/avatars` (lost on restart without a writable one, like Mixes).
 
+## Invites
+
+Invite people to your Jam or a mix from inside the app: the Jam panel and a mix's page list everyone on the server, and **Invite** puts it in their inbox (the bell in the top bar, which pops up when something arrives). **Join** opens the Jam or the mix to join it, **Decline** removes it. The invite link and code still work for anyone else.
+
+- The Jam server (`server/invites.mjs`) carries them. Navidrome only lists its users to admins, so the people you can invite are everyone who has used an app with this server.
+- Anyone in a Jam or a mix can invite people to it. Invites go away once they're answered, the person joins, the Jam ends or the mix is deleted, or after a week.
+- Invites are saved in `JAM_DATA_DIR/invites.json` (lost on restart without a writable one, like Mixes). Apps check for new ones every 20 seconds while open.
+
 ## Local development
 
 ```bash

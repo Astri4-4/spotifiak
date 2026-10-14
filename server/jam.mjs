@@ -41,13 +41,19 @@
 // And it keeps everyone's profile picture - see avatars.mjs.
 //
 //   /jam-api/avatars/...
+//
+// And it carries invitations to a Jam or a mix from one person to another -
+// see invites.mjs.
+//
+//   /jam-api/invites/...
 
 import http from "node:http";
 import crypto from "node:crypto";
 import { handleDiscover } from "./discover.mjs";
 import { handleDuplicates } from "./duplicates.mjs";
-import { handleMixes } from "./mixes.mjs";
+import { handleMixes, mixForInvite } from "./mixes.mjs";
 import { handleAvatars } from "./avatars.mjs";
+import { handleInvites, rememberPerson } from "./invites.mjs";
 
 const PORT = Number(process.env.JAM_PORT || 3001);
 const HOST = process.env.JAM_HOST || "127.0.0.1";
@@ -110,6 +116,7 @@ async function authenticate(params) {
     return null;
   }
   authCache.set(key, { username: u, expires: Date.now() + AUTH_TTL_MS });
+  rememberPerson(u);
   return u;
 }
 
@@ -579,6 +586,14 @@ async function handleDevices(req, res, url, username, sub) {
   return json(res, 204);
 }
 
+/** What an invite to a Jam or a mix is for, or null once it's over (see invites.mjs). */
+function inviteTarget(kind, code) {
+  if (kind === "mix") return mixForInvite(code);
+  const session = sessions.get(code);
+  if (!session) return null;
+  return { name: session.host, members: [session.host, ...members(session).map((m) => m.username)] };
+}
+
 async function handle(req, res) {
   const url = new URL(req.url, "http://jam.local");
   // The mobile app calls this server cross-origin. Any origin is fine: every
@@ -611,6 +626,12 @@ async function handle(req, res) {
     const username = await authenticate(url.searchParams);
     if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });
     return handleMixes(req, res, url, username, { readJson });
+  }
+
+  if (url.pathname === "/jam-api/invites" || url.pathname.startsWith("/jam-api/invites/")) {
+    const username = await authenticate(url.searchParams);
+    if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });
+    return handleInvites(req, res, url, username, { readJson, lookup: inviteTarget });
   }
 
   if (url.pathname.startsWith("/jam-api/discover/")) {

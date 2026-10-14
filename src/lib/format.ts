@@ -21,3 +21,14 @@ export function formatDurationLong(totalSeconds: number | undefined | null): str
   if (hours > 0) return `${hours} hr ${minutes} min`;
   return `${minutes} min`;
 }
+
+/** How long ago a time (ms since epoch) was: "Just now", "5 min ago", "3 h ago", "2 days ago". */
+export function formatTimeAgo(at: number): string {
+  const minutes = Math.floor((Date.now() - at) / 60_000);
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} h ago`;
+  const days = Math.floor(hours / 24);
+  return days === 1 ? "Yesterday" : `${days} days ago`;
+}

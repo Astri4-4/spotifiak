@@ -8,6 +8,7 @@ import { usePlayer } from "@/context/PlayerContext";
 import { getMyTopSongs, refreshMyPart } from "@/lib/mixes";
 import { refreshPlaylists } from "@/lib/playlists";
 import { jamInviteOrigin } from "@/lib/servers";
+import { InviteFriends } from "@/components/InviteFriends";
 import { shuffled } from "@/lib/shuffle";
 import { DetailHeader, PlayButton, ShufflePlayButton } from "@/components/DetailHeader";
 import { Loading } from "@/components/Loading";
@@ -161,7 +162,7 @@ function MixView({
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <InviteCard code={mix.id} alone={!together} />
+        <InviteCard code={mix.id} members={mix.members.map((m) => m.username)} alone={!together} />
         {isOwner && <PlaylistCard mix={mix} onChange={onChange} />}
       </div>
 
@@ -240,7 +241,7 @@ function PlaylistCard({ mix, onChange }: { mix: MixData; onChange: (mix: MixData
   );
 }
 
-function InviteCard({ code, alone }: { code: string; alone: boolean }) {
+function InviteCard({ code, members, alone }: { code: string; members: string[]; alone: boolean }) {
   const [copied, setCopied] = useState(false);
   // The desktop and mobile apps' own origin isn't reachable by others (see the Jam's invite).
   const [origin, setOrigin] = useState("");
@@ -262,8 +263,9 @@ function InviteCard({ code, alone }: { code: string; alone: boolean }) {
   return (
     <section className="rounded-lg bg-white/5 p-4 sm:p-5">
       <h2 className="mb-2 font-bold">{alone ? "Invite a friend to blend with" : "Invite more friends"}</h2>
-      <p className="mb-3 text-sm text-spotify-gray">
-        Code <span className="font-mono font-bold tracking-widest text-white">{code}</span>
+      <InviteFriends kind="mix" code={code} members={members} />
+      <p className="mb-3 mt-4 text-sm text-spotify-gray">
+        Or share the code <span className="font-mono font-bold tracking-widest text-white">{code}</span>
       </p>
       <div className="flex flex-col gap-2 sm:flex-row">
         <input

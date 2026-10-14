@@ -6,10 +6,12 @@ import { TrackList } from "@/components/TrackList";
 import { Loading } from "@/components/Loading";
 import { HeartIcon } from "@/components/icons";
 import { DetailHeader, PlayButton } from "@/components/DetailHeader";
+import { useHidden, visibleIndices } from "@/lib/hidden";
 
 export function LikedSongs() {
   const [songs, setSongs] = useState<Child[] | null>(null);
   const { playQueue } = usePlayer();
+  const hidden = useHidden();
 
   function refresh() {
     getStarred2().then((r) => setSongs(r.song ?? []));
@@ -18,6 +20,8 @@ export function LikedSongs() {
   useEffect(refresh, []);
 
   if (songs === null) return <Loading />;
+  // Liking both copies of a song shows it once.
+  const visible = visibleIndices(songs, hidden).map((i) => songs[i]);
 
   const starredIds = new Set(songs.map((s) => s.id));
 
@@ -41,10 +45,10 @@ export function LikedSongs() {
             <HeartIcon filled className="h-1/3 w-1/3 text-pure-white" />
           </div>
         }
-        meta={`${songs.length} songs`}
+        meta={`${visible.length} songs`}
       />
       <div className="mt-4 flex items-center gap-6 sm:mt-6">
-        <PlayButton onClick={() => playQueue(songs)} disabled={songs.length === 0} label="Play liked songs" />
+        <PlayButton onClick={() => playQueue(visible)} disabled={visible.length === 0} label="Play liked songs" />
       </div>
 
       <div className="mt-4 sm:mt-8">
@@ -53,7 +57,7 @@ export function LikedSongs() {
             Songs you like will appear here. Tap the heart icon on any track to save it.
           </p>
         ) : (
-          <TrackList tracks={songs} showAlbum showCover starredIds={starredIds} onToggleStar={handleToggleStar} />
+          <TrackList tracks={visible} showAlbum showCover starredIds={starredIds} onToggleStar={handleToggleStar} />
         )}
       </div>
     </div>

@@ -26,8 +26,7 @@ spec:
         runAsUser: 101
         runAsGroup: 101
         # Makes the data volume (a fresh Longhorn disk, owned by root)
-        # writable for uid 101. The SMB music share is untouched: the SMB
-        # CSI driver only applies fsGroup to ReadWriteOnce volumes.
+        # writable for uid 101.
         fsGroup: 101
         fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
@@ -46,14 +45,6 @@ spec:
             # data volume).
             - name: DEEMIX_URL
               value: http://deemix.media.svc.cluster.local:6595
-            # Remove duplicates: the music share, read-write (music-volume.yaml).
-            # Navidrome must report real file paths for it:
-            # ND_SUBSONIC_DEFAULTREPORTREALPATH=true on Navidrome.
-            - name: MUSIC_DIR
-              value: /music
-            # deemix's download folder within it (deemix mounts that subPath).
-            - name: DEEMIX_FOLDER
-              value: Deezer
           ports:
             - name: http
               containerPort: 8080
@@ -93,8 +84,6 @@ spec:
               mountPath: /tmp
             - name: nginx-cache
               mountPath: /var/cache/nginx
-            - name: music
-              mountPath: /music
       volumes:
         - name: data
           persistentVolumeClaim:
@@ -105,6 +94,3 @@ spec:
           emptyDir: {}
         - name: nginx-cache
           emptyDir: {}
-        - name: music
-          persistentVolumeClaim:
-            claimName: music

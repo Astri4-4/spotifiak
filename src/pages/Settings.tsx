@@ -6,6 +6,7 @@ import { useConnect } from "@/context/PlayerContext";
 import { defaultDeviceName } from "@/lib/device";
 import { setShareListening, useShareListening } from "@/lib/sharing";
 import { setOnlineLyrics, useOnlineLyrics } from "@/lib/lyrics";
+import { showHiddenAgain, useHidden } from "@/lib/hidden";
 import { SubsonicError } from "@/api/client";
 import { ping } from "@/api/subsonic";
 import { checkJamServer } from "@/api/jam";
@@ -69,6 +70,10 @@ export function Settings() {
       <Section title="Privacy">
         <ShareListeningToggle />
         <OnlineLyricsToggle />
+      </Section>
+
+      <Section title="Library">
+        <HiddenDuplicates />
       </Section>
 
       <Section title="Appearance">
@@ -241,6 +246,53 @@ function ProfilePictureButtons({ username }: { username: string }) {
         )}
       </div>
       {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
+    </div>
+  );
+}
+
+/** How many duplicates you've hidden ("Hide duplicates" on albums, artists and playlists), to show them all again. */
+function HiddenDuplicates() {
+  const hidden = useHidden();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const songs = Object.keys(hidden.songs).length;
+  const albums = hidden.albums.length;
+
+  async function showAll() {
+    setBusy(true);
+    setError(null);
+    try {
+      await showHiddenAgain({ all: true });
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold">Hidden duplicates</p>
+          <p className="text-sm text-spotify-gray">
+            {songs || albums
+              ? `${songs} song${songs === 1 ? "" : "s"}${albums ? ` and ${albums} album${albums === 1 ? "" : "s"}` : ""} hidden, for you only.`
+              : 'None. Use "Hide duplicates" on an album, artist or playlist to see each song once.'}
+          </p>
+        </div>
+        {(songs > 0 || albums > 0) && (
+          <button
+            type="button"
+            onClick={() => void showAll()}
+            disabled={busy}
+            className="flex-shrink-0 rounded-full border border-white/40 px-4 py-2 text-sm font-bold hover:border-white disabled:opacity-60"
+          >
+            Show all again
+          </button>
+        )}
+      </div>
+      {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
     </div>
   );
 }

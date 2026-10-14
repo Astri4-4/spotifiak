@@ -35,15 +35,13 @@ Turn on **Discover** in Search to search Deezer instead of your library: listen 
 - Set the deemix server with `DEEMIX_URL` on the Spotifiak server, or from **Settings → Discover** (Navidrome admins only; saved in `JAM_DATA_DIR`, `/opt/jam/data` in the Docker image - mount a volume there to keep it). Leave it empty to turn Discover off.
 - The desktop and mobile apps use the Discover of their Jam server.
 
-## Remove duplicates
+## Hide duplicates
 
-Albums and playlists have a **Remove duplicates** button: it finds the other files of their songs in your library (same title and artist, about the same length) and keeps the best copy - the album track (named `01 - Title`, as deemix and Lidarr do), else the single (at the top of deemix's download folder), else one in a downloaded playlist's folder, then the highest bitrate. The others are moved, for everyone, into the music folder's hidden `.spotifion-trash/<date>/` (Navidrome ignores it): nothing is deleted, so move files back to undo, and empty it when sure. It shows what it would move first. Afterwards, your own playlists are pointed at the copies kept (Navidrome only lets owners change a playlist; others' playlists keep pointing at the moved file).
+Albums, artists and playlists have a **Hide duplicates** button, for when the library has the same song several times (an album's track and its single, a compilation, a downloaded playlist's folder). It finds the other copies of their songs (same title and artist, about the same length), keeps the best one - an album's track over a single, then the highest bitrate - and hides the others, after showing what it would hide.
 
-It needs:
-
-- The music folder mounted read-write in the Spotifiak container, at `MUSIC_DIR` (see `docker-compose.yml`, or `deploy/k8s/music-volume.yaml` for an SMB share on Kubernetes). Without it, the button doesn't show.
-- `DEEMIX_FOLDER`: deemix's download folder within the music folder, if it's a subfolder (e.g. `Deezer`), so its singles are recognised.
-- Navidrome reporting real file paths, so its songs can be matched to files: `ND_SUBSONIC_DEFAULTREPORTREALPATH=true` on Navidrome. It only applies to players Navidrome creates afterwards, which is why the server asks under its own client name, `spotifion-files`; if that player already existed, turn on its "Report real path" in Navidrome's Players settings. If Navidrome reports the path as absolute and its music folder isn't `/music`, set `NAVIDROME_MUSIC_DIR` to it.
+- It's only for you, and nothing changes in the library: no file is moved and no playlist is edited, so nothing breaks for anyone. A hidden copy disappears wherever the copy kept is listed too (or another copy of it already is), so lists, search and liked songs show the song once, while a playlist with only that copy still plays it. Albums left with only hidden copies (usually singles) disappear from artist pages and search.
+- Show them again from the same button ("Show again"), or all at once in **Settings → Library**.
+- The Jam server keeps the list (`server/hidden.mjs`), so it follows you on every device. It's saved in `JAM_DATA_DIR/hidden.json` (lost on restart without a writable one, like Mixes).
 
 ## Jam
 

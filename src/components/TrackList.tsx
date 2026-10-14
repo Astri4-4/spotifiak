@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState, type MouseEvent } from "react";
 import { Link } from "react-router-dom";
 import type { Child } from "@/types/subsonic";
 import { coverArtUrl } from "@/api/subsonic";
@@ -6,6 +6,7 @@ import { formatDuration } from "@/lib/format";
 import { usePlayer } from "@/context/PlayerContext";
 import { openSongMenu } from "@/lib/songMenu";
 import { CheckIcon, HeartIcon, MoreIcon, PauseIcon, PlayIcon, QueueAddIcon } from "./icons";
+import { SelectionBar } from "./SelectionBar";
 
 // Phones: title | actions. md: # | title | actions. lg+: # | title | album | actions.
 const COLUMNS =
@@ -22,6 +23,8 @@ interface TrackListProps {
   onToggleStar?: (track: Child) => void;
   /** Offers "Remove from this playlist" in the song menu. */
   onRemoveFromPlaylist?: (index: number) => void;
+  /** Offers removing the selected songs (their positions in `tracks`). */
+  onRemoveManyFromPlaylist?: (indices: number[]) => void;
   /** A short note after the artist, e.g. whose top songs a mix's song comes from. */
   rowNote?: (index: number) => string | undefined;
 }
@@ -35,10 +38,57 @@ export function TrackList({
   starredIds,
   onToggleStar,
   onRemoveFromPlaylist,
+  onRemoveManyFromPlaylist,
   rowNote,
 }: TrackListProps) {
   const { current, isPlaying, togglePlay, playQueue, enqueue, inJam } = usePlayer();
   const [justQueued, setJustQueued] = useState<string | null>(null);
+  // Several songs picked at once: from "Select" in the song menu, or
+  // Ctrl/Cmd-click and Shift-click. Positions in `tracks`.
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [anchor, setAnchor] = useState<number | null>(null);
+  const selecting = selected.size > 0;
+  const clearSelection = useCallback(() => {
+    setSelected(new Set());
+    setAnchor(null);
+  }, []);
+  // Another list (sorted, searched, reloaded): start over.
+  const tracksKey = tracks.map((t) => t.id).join(",");
+  useEffect(clearSelection, [tracksKey, clearSelection]);
+
+  const isStarred = (track: Child) => starredIds?.has(track.id) ?? Boolean(track.starred);
+
+  function toggleSelected(index: number) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+    setAnchor(index);
+  }
+
+  function selectRange(to: number) {
+    const from = anchor ?? to;
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (let i = Math.min(from, to); i <= Math.max(from, to); i++) next.add(i);
+      return next;
+    });
+  }
+
+  /** Single click: picks songs while selecting (or with a modifier key); plays on touch screens. */
+  function handleClick(e: MouseEvent, index: number) {
+    if (e.shiftKey && (selecting || anchor !== null)) {
+      e.preventDefault();
+      selectRange(index);
+    } else if (e.metaKey || e.ctrlKey || selecting) {
+      toggleSelected(index);
+    } else {
+      setAnchor(index);
+      if (window.matchMedia("(hover: none)").matches) handleRowClick(index);
+    }
+  }
 
   function handleQueue(track: Child) {
     enqueue([track]);
@@ -55,6 +105,7 @@ export function TrackList({
       starred: starredIds ? starredIds.has(track.id) : undefined,
       onToggleStar: onToggleStar && (() => onToggleStar(track)),
       onRemoveFromPlaylist: onRemoveFromPlaylist && (() => onRemoveFromPlaylist(index)),
+      onSelect: () => toggleSelected(index),
     });
   }
 
@@ -85,27 +136,30 @@ export function TrackList({
       <div className="mt-2 flex flex-col">
         {tracks.map((track, index) => {
           const isCurrent = current?.id === track.id;
-          const starred = starredIds?.has(track.id) ?? Boolean(track.starred);
+          const starred = isStarred(track);
+          const isSelected = selected.has(index);
           const note = rowNote?.(index);
           return (
             <div
               key={`${track.id}-${index}`}
-              onDoubleClick={() => handleRowClick(index)}
+              onDoubleClick={() => !selecting && handleRowClick(index)}
+              aria-selected={selecting ? isSelected : undefined}
               onContextMenu={(e) => {
                 e.preventDefault();
                 openMenu(index, e.clientX, e.clientY);
               }}
               // Touch screens have no double-click: a single tap plays the row.
-              onClick={() => {
-                if (window.matchMedia("(hover: none)").matches) handleRowClick(index);
-              }}
-              className={`group grid cursor-default items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-white/10 active:bg-white/10 md:gap-4 md:px-4 ${COLUMNS}`}
+              onClick={(e) => handleClick(e, index)}
+              className={`group grid cursor-default select-none items-center gap-3 rounded-md px-2 py-2 text-sm active:bg-white/10 md:gap-4 md:px-4 ${COLUMNS} ${
+                isSelected ? "bg-white/20 hover:bg-white/25" : "hover:bg-white/10"
+              }`}
             >
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleRowClick(index);
+                  if (selecting) toggleSelected(index);
+                  else handleRowClick(index);
                 }}
                 className={`relative hidden h-5 w-5 items-center justify-center justify-self-end text-right md:flex ${isCurrent ? "text-spotify-green" : "text-spotify-gray"}`}
                 aria-label={isCurrent && isPlaying ? "Pause" : "Play"}
@@ -127,6 +181,16 @@ export function TrackList({
               </button>
 
               <div className="flex min-w-0 items-center gap-3">
+                {selecting && (
+                  <span
+                    aria-hidden
+                    className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 ${
+                      isSelected ? "border-spotify-green bg-spotify-green text-on-accent" : "border-spotify-gray"
+                    }`}
+                  >
+                    {isSelected && <CheckIcon className="h-3 w-3" />}
+                  </span>
+                )}
                 {showCover && (
                   <img
                     src={coverArtUrl(track.coverArt, 80)}
@@ -212,6 +276,17 @@ export function TrackList({
           );
         })}
       </div>
+      {selecting && (
+        <SelectionBar
+          tracks={[...selected].sort((a, b) => a - b).map((i) => tracks[i])}
+          allSelected={selected.size === tracks.length}
+          isStarred={isStarred}
+          onToggleStar={onToggleStar}
+          onRemove={onRemoveManyFromPlaylist && (() => onRemoveManyFromPlaylist([...selected]))}
+          onSelectAll={() => setSelected(new Set(tracks.map((_, i) => i)))}
+          onClear={clearSelection}
+        />
+      )}
     </div>
   );
 }

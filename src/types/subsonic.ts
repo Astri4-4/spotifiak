@@ -23,6 +23,8 @@ export interface AlbumID3 {
   genre?: string;
   created?: string;
   starred?: string;
+  /** When the logged-in user last played it (OpenSubsonic; Navidrome sends it). */
+  played?: string;
 }
 
 export interface Child {
@@ -52,6 +54,17 @@ export interface Child {
   type?: string;
   /** How often the logged-in user played it (OpenSubsonic; Navidrome sends it). */
   playCount?: number;
+  /** When the logged-in user last played it (OpenSubsonic; Navidrome sends it). */
+  played?: string;
+}
+
+/** getArtistInfo2: from Last.fm, if Navidrome has it set up. */
+export interface ArtistInfo2 {
+  biography?: string;
+  lastFmUrl?: string;
+  largeImageUrl?: string;
+  /** Only those in the library. */
+  similarArtist?: ArtistID3[];
 }
 
 export interface Playlist {

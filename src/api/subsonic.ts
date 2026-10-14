@@ -3,6 +3,7 @@ import type {
   AlbumID3,
   AlbumWithSongsID3,
   ArtistID3,
+  ArtistInfo2,
   ArtistWithAlbumsID3,
   Child,
   IndexID3,
@@ -52,6 +53,32 @@ export async function getArtist(id: string): Promise<ArtistWithAlbumsID3> {
     "subsonic-response": { artist: ArtistWithAlbumsID3 };
   }>("getArtist", { id });
   return res["subsonic-response"].artist;
+}
+
+/** Biography and similar artists (from Last.fm, if Navidrome has it set up); empty otherwise. */
+export async function getArtistInfo2(id: string, count = 12): Promise<ArtistInfo2> {
+  const res = await request<{
+    "subsonic-response": { artistInfo2?: ArtistInfo2 };
+  }>("getArtistInfo2", { id, count });
+  return res["subsonic-response"].artistInfo2 ?? {};
+}
+
+/** An artist's most popular songs in the library (from Last.fm, if Navidrome has it set up). */
+export async function getTopSongs(artist: string, count = 10): Promise<Child[]> {
+  const res = await request<{
+    "subsonic-response": { topSongs?: { song?: Child[] } };
+  }>("getTopSongs", { artist, count });
+  return res["subsonic-response"].topSongs?.song ?? [];
+}
+
+/** Every album, a page at a time (Subsonic serves at most 500 at once). */
+export async function getAllAlbums(): Promise<AlbumID3[]> {
+  const all: AlbumID3[] = [];
+  for (let offset = 0; ; offset += 500) {
+    const page = await getAlbumList2("alphabeticalByName", 500, offset);
+    all.push(...page);
+    if (page.length < 500) return all;
+  }
 }
 
 export async function getAlbum(id: string): Promise<AlbumWithSongsID3> {

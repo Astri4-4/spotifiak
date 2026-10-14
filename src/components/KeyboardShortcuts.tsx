@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { usePlayer } from "@/context/PlayerContext";
 import { useTrackStar } from "@/lib/trackStar";
 import { setShortcutsOpen, useShortcutsOpen } from "@/lib/shortcutsDialog";
+import { isWide, openOrCloseRightPanel } from "@/lib/rightPanel";
 import { CloseIcon } from "./icons";
 
 const SEEK_STEP = 5; // seconds
@@ -98,7 +99,9 @@ export function KeyboardShortcuts() {
             void star();
             break;
           case "q":
-            if (path === "/queue") go(-1);
+            // Beside the page on wide screens, else its page.
+            if (isWide()) openOrCloseRightPanel("queue", p.inJam);
+            else if (path === "/queue") go(-1);
             else go(p.inJam ? "/jam" : "/queue");
             break;
           case "/":

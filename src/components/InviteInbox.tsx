@@ -51,7 +51,9 @@ export function InviteInbox() {
         )}
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-30 mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-lg bg-spotify-highlight-black p-2 shadow-2xl">
+        // Phones: across the screen under the top bar (whose backdrop blur makes it the
+        // box "fixed" is placed in), since the bell isn't at the edge. Wider: under the bell.
+        <div className="fixed inset-x-4 top-full z-30 mt-1 rounded-lg bg-spotify-highlight-black p-2 shadow-2xl md:absolute md:inset-x-auto md:right-0 md:mt-2 md:w-[22rem]">
           <h2 className="px-2 pb-1 pt-1 font-bold">Invites</h2>
           {received.length === 0 ? (
             <p className="px-2 pb-2 text-sm text-spotify-gray">

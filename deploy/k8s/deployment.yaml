@@ -25,6 +25,11 @@ spec:
         runAsNonRoot: true
         runAsUser: 101
         runAsGroup: 101
+        # Makes the data volume (a fresh Longhorn disk, owned by root)
+        # writable for uid 101. The SMB music share is untouched: the SMB
+        # CSI driver only applies fsGroup to ReadWriteOnce volumes.
+        fsGroup: 101
+        fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -37,8 +42,8 @@ spec:
             # Discover: the deemix server to download through (empty turns
             # it off), as reachable from this pod: in the cluster, its
             # Service's name (home-network DNS names don't resolve here).
-            # With the read-only root filesystem, a deemix server set from
-            # the app's Settings only lasts until the pod restarts.
+            # One set from the app's Settings overrides it (saved in the
+            # data volume).
             - name: DEEMIX_URL
               value: http://deemix.media.svc.cluster.local:6595
             # Remove duplicates: the music share, read-write (music-volume.yaml).
@@ -77,8 +82,11 @@ spec:
             capabilities:
               drop: ["ALL"]
           # Writable paths nginx needs with a read-only root filesystem:
-          # the rendered config (envsubst at startup), pid file and temp dirs.
+          # the rendered config (envsubst at startup), pid file and temp dirs;
+          # and the Jam server's saved data (JAM_DATA_DIR, data-volume.yaml).
           volumeMounts:
+            - name: data
+              mountPath: /opt/jam/data
             - name: nginx-conf
               mountPath: /etc/nginx/conf.d
             - name: tmp
@@ -88,6 +96,9 @@ spec:
             - name: music
               mountPath: /music
       volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: spotifion-data
         - name: nginx-conf
           emptyDir: {}
         - name: tmp

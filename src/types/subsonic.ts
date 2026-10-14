@@ -34,6 +34,8 @@ export interface Child {
   albumId?: string;
   artist?: string;
   artistId?: string;
+  /** Each of its artists, the main one first (OpenSubsonic; Navidrome sends it). */
+  artists?: { id: string; name: string }[];
   track?: number;
   year?: number;
   genre?: string;

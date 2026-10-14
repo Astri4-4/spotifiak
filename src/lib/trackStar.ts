@@ -1,11 +1,16 @@
-import { useCallback, useSyncExternalStore } from "react";
-import { star, unstar } from "@/api/subsonic";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
+import { getSong, star, unstar } from "@/api/subsonic";
 import type { Child } from "@/types/subsonic";
 
-// Likes changed during this session, by track id, shared by every player
-// control showing the current track (track objects carry the server's
-// `starred` as of when they were loaded).
-const overrides = new Map<string, boolean>();
+// Whether songs are in Liked Songs, shared by every control showing one (the
+// player, the song menu...). A track object's own `starred` can't be trusted:
+// it's as of when it was loaded, and tracks from a Jam, another device or a
+// mix don't carry it at all. So the server is asked when a song shows up,
+// and likes changed here are kept too.
+const known = new Map<string, boolean>();
+/** When each song was last liked or unliked here, so an older answer from the server doesn't undo it. */
+const changedAt = new Map<string, number>();
+const fetching = new Set<string>();
 const listeners = new Set<() => void>();
 let version = 0;
 
@@ -14,16 +19,42 @@ function subscribe(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
-function setStarred(id: string, value: boolean) {
-  overrides.set(id, value);
+function set(id: string, value: boolean) {
+  if (known.get(id) === value) return;
+  known.set(id, value);
   version++;
   for (const l of listeners) l();
+}
+
+/** Records a like changed elsewhere in the app (e.g. a list's own heart), so the player shows it too. */
+export function setStarred(id: string, value: boolean) {
+  changedAt.set(id, Date.now());
+  set(id, value);
+}
+
+/** Asks the server whether a song is liked (once at a time per song). */
+function lookup(id: string) {
+  if (fetching.has(id)) return;
+  fetching.add(id);
+  const startedAt = Date.now();
+  getSong(id)
+    .then((song) => {
+      if ((changedAt.get(id) ?? 0) < startedAt) set(id, Boolean(song.starred));
+    })
+    .catch(() => void 0) // Offline: the track's own `starred` it is.
+    .finally(() => fetching.delete(id));
 }
 
 /** Whether `track` is in Liked Songs, and a toggle that updates the server. */
 export function useTrackStar(track: Child | null) {
   useSyncExternalStore(subscribe, () => version);
-  const isStarred = track ? (overrides.get(track.id) ?? Boolean(track.starred)) : false;
+  const id = track?.id;
+  const isStarred = track ? (known.get(track.id) ?? Boolean(track.starred)) : false;
+
+  // Each time a song shows up: it may have been liked or unliked since, here or elsewhere.
+  useEffect(() => {
+    if (id) lookup(id);
+  }, [id]);
 
   const toggle = useCallback(async () => {
     if (!track) return;

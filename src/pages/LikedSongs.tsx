@@ -10,6 +10,7 @@ import { ListControls } from "@/components/ListControls";
 import { byText, songFields, SONG_SORTS, sortedIndices, useSortChoice, type SortOption } from "@/lib/listSort";
 import { shuffled } from "@/lib/shuffle";
 import { useHidden, visibleIndices } from "@/lib/hidden";
+import { setStarred } from "@/lib/trackStar";
 
 const LIKED_SORTS: SortOption<Child>[] = [
   { id: "liked", label: "Recently liked", compare: (a, b) => byText(b.starred, a.starred) },
@@ -39,9 +40,11 @@ export function LikedSongs() {
   async function handleToggleStar(track: Child) {
     // Unstarring here means removing it from this very list.
     setSongs((prev) => prev?.filter((s) => s.id !== track.id) ?? null);
+    setStarred(track.id, false);
     try {
       await unstar({ id: [track.id] });
     } catch {
+      setStarred(track.id, true);
       refresh();
     }
   }

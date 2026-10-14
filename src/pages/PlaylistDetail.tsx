@@ -20,6 +20,7 @@ import { DetailHeader, PlayButton, ShufflePlayButton } from "@/components/Detail
 import { CloseIcon, DragHandleIcon } from "@/components/icons";
 import { shuffled } from "@/lib/shuffle";
 import { refreshPlaylists } from "@/lib/playlists";
+import { setStarred } from "@/lib/trackStar";
 import { useDragReorder } from "@/lib/useDragReorder";
 import { HideDuplicatesButton } from "@/components/HideDuplicatesButton";
 import { useHidden, visibleIndices } from "@/lib/hidden";
@@ -120,11 +121,13 @@ export function PlaylistDetail() {
       else next.add(track.id);
       return next;
     });
+    setStarred(track.id, !isStarred);
     try {
       if (isStarred) await unstar({ id: [track.id] });
       else await star({ id: [track.id] });
     } catch {
       // revert on failure
+      setStarred(track.id, isStarred);
       setStarredIds((prev) => {
         const next = new Set(prev);
         if (isStarred) next.add(track.id);

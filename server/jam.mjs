@@ -31,6 +31,12 @@
 //
 // And it keeps each person's hidden duplicate songs - see hidden.mjs.
 //
+//   /jam-api/duplicates/...
+//
+// And it keeps the weekly scoreboard: who listened the most, and the artists
+// friends have in common - see scoreboard.mjs.
+//
+//   /jam-api/scoreboard/...
 //   /jam-api/hidden/...
 //
 // And it keeps Mixes, playlists blended from several people's top songs -
@@ -50,6 +56,8 @@
 import http from "node:http";
 import crypto from "node:crypto";
 import { handleDiscover } from "./discover.mjs";
+import { handleDuplicates } from "./duplicates.mjs";
+import { handleScoreboard } from "./scoreboard.mjs";
 import { handleHidden } from "./hidden.mjs";
 import { handleMixes, mixForInvite } from "./mixes.mjs";
 import { handleAvatars } from "./avatars.mjs";
@@ -632,6 +640,12 @@ async function handle(req, res) {
     const username = await authenticate(url.searchParams);
     if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });
     return handleInvites(req, res, url, username, { readJson, lookup: inviteTarget });
+  }
+
+  if (url.pathname === "/jam-api/scoreboard" || url.pathname.startsWith("/jam-api/scoreboard/")) {
+    const username = await authenticate(url.searchParams);
+    if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });
+    return handleScoreboard(req, res, url, username, { navidromeUrl: NAVIDROME_URL, readJson });
   }
 
   if (url.pathname.startsWith("/jam-api/discover/")) {

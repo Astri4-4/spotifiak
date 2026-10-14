@@ -26,6 +26,12 @@ See what the other people on your Navidrome server are listening to, like Spotif
 
 It uses Navidrome's own "now playing" list (Subsonic `getNowPlaying`), so it needs no extra server and also shows people using other Navidrome apps. To stop appearing in it, turn off **Settings → Privacy → Share what I'm listening to**: the app then stops sending "now playing" (your plays are still saved to your history). Other apps you use have their own behaviour.
 
+### This week (scoreboard)
+
+The **This week** tab of Friend activity ranks who listened the most since Monday (by listening time, with each person's top artists), and lists the artists at least two of you listened to this week. Weeks start on Monday at midnight in the server's time zone (set `TZ` on the container to change it).
+
+It's kept by the Jam server (`server/scoreboard.mjs`): the app reports each song once it's half played, at the same time as it scrobbles it, and the server looks it up in Navidrome with your credentials so only real songs count, at their real length. So only plays from Spotifiak count, and only while **Share what I'm listening to** is on; turning it off also takes you off this week's board. The board is saved in `JAM_DATA_DIR` (a volume in `docker-compose.yml`); without a writable one, as on the Kubernetes deployment, it starts over when the server restarts.
+
 ## Discover (download new music)
 
 Turn on **Discover** in Search to search Deezer instead of your library: listen to 30-second previews and download songs or whole albums into your library, through your [deemix](https://github.com/bambanah/deemix) server. Downloads show their progress, and appear in your library once Navidrome has picked them up (the app asks Navidrome to rescan when it can - admins only - otherwise Navidrome's own file watcher or scheduled scan finds them).

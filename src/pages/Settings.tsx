@@ -10,6 +10,7 @@ import { showHiddenAgain, useHidden } from "@/lib/hidden";
 import { SubsonicError } from "@/api/client";
 import { ping } from "@/api/subsonic";
 import { checkJamServer } from "@/api/jam";
+import { leaveScoreboard } from "@/api/scoreboard";
 import { CheckIcon, LogoutIcon } from "@/components/icons";
 import { Avatar } from "@/components/Avatar";
 import { removeMyAvatar, setMyAvatar, useAvatarUrl } from "@/lib/avatars";
@@ -184,15 +185,18 @@ function ShareListeningToggle() {
       <span className="min-w-0">
         <span className="block text-sm font-semibold">Share what I'm listening to</span>
         <span className="block text-xs text-spotify-gray">
-          Other people on this Navidrome server see the song you're playing in Friend activity. Your plays are still
-          saved to your own history either way.
+          Other people on this Navidrome server see the song you're playing in Friend activity, and how much you
+          listen this week on its scoreboard. Your plays are still saved to your own history either way.
         </span>
       </span>
       <input
         type="checkbox"
         role="switch"
         checked={sharing}
-        onChange={(e) => setShareListening(e.target.checked)}
+        onChange={(e) => {
+          setShareListening(e.target.checked);
+          if (!e.target.checked) leaveScoreboard().catch(() => void 0);
+        }}
         className="peer sr-only"
       />
       <span

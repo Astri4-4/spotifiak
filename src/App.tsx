@@ -17,6 +17,7 @@ import { JoinJam } from "@/pages/JoinJam";
 import { Settings } from "@/pages/Settings";
 import { Activity } from "@/pages/Activity";
 import { Queue } from "@/pages/Queue";
+import { Track } from "@/pages/Track";
 import { Mixes } from "@/pages/Mixes";
 import { Mix } from "@/pages/Mix";
 import { Lyrics } from "@/pages/Lyrics";
@@ -38,6 +39,7 @@ export default function App() {
                   <Route path="/album/:id" element={<AlbumDetail />} />
                   <Route path="/artist/:id" element={<ArtistDetail />} />
                   <Route path="/playlist/:id" element={<PlaylistDetail />} />
+                  <Route path="/track/:id" element={<Track />} />
                   <Route path="/queue" element={<Queue />} />
                   <Route path="/lyrics" element={<Lyrics />} />
                   <Route path="/jam" element={<Jam />} />

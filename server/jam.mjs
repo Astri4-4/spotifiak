@@ -657,6 +657,8 @@ async function handle(req, res) {
     const username = await authenticate(url.searchParams);
     if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });
     return handlePodcasts(req, res, url, username, { readJson });
+  }
+
   if (url.pathname === "/jam-api/scoreboard" || url.pathname.startsWith("/jam-api/scoreboard/")) {
     const username = await authenticate(url.searchParams);
     if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });

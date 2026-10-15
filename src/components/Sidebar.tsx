@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { usePlaylists } from "@/lib/playlists";
-import { HeartIcon, HomeIcon, JamIcon, LibraryIcon, MixIcon, PlusIcon, SearchIcon } from "./icons";
+import { HeartIcon, HomeIcon, JamIcon, LibraryIcon, MixIcon, PlusIcon, PodcastIcon, SearchIcon } from "./icons";
 import { useJam } from "@/context/JamContext";
 import { isWide, openOrCloseRightPanel, shownPanel, useRightPanel, WIDE_QUERY } from "@/lib/rightPanel";
 import { useMediaQuery } from "@/lib/useMediaQuery";
@@ -49,6 +49,10 @@ export function Sidebar() {
           <NavLink to="/mixes" className={navLinkClass}>
             <MixIcon className="h-6 w-6" />
             Mixes
+          </NavLink>
+          <NavLink to="/podcasts" className={navLinkClass}>
+            <PodcastIcon className="h-6 w-6" />
+            Podcasts
           </NavLink>
         </nav>
       </div>

@@ -56,6 +56,10 @@ export interface Child {
   playCount?: number;
   /** When the logged-in user last played it (OpenSubsonic; Navidrome sends it). */
   played?: string;
+  /** Podcast episodes only (not Subsonic): the audio's own URL, played instead of Navidrome's stream. */
+  src?: string;
+  /** Podcast episodes only: their show's id (see server/podcasts.mjs). */
+  podcastId?: string;
 }
 
 /** getArtistInfo2: from Last.fm, if Navidrome has it set up. */

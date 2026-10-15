@@ -9,6 +9,8 @@ import { formatDuration } from "@/lib/format";
 import { useNowPlayingSheet } from "@/lib/nowPlayingSheet";
 import { useTrackStar } from "@/lib/trackStar";
 import { openSongMenu } from "@/lib/songMenu";
+import { isEpisode } from "@/lib/podcasts";
+import { SkipBackButton, SkipForwardButton, SpeedButton } from "./PodcastControls";
 import {
   ChevronDownIcon,
   HeartIcon,
@@ -65,6 +67,9 @@ export function NowPlayingSheet() {
 
   const canTogglePlay = canControl || audioBlocked;
   const total = duration || current.duration || 0;
+  // Podcast episodes: no likes or lyrics, skip buttons instead of shuffle/repeat, and a speed.
+  const episode = isEpisode(current);
+  const showLink = episode && current.podcastId ? `/podcast/${current.podcastId}` : null;
 
   function onTouchStart(e: TouchEvent) {
     dragStartRef.current = e.touches[0].clientY;
@@ -108,7 +113,7 @@ export function NowPlayingSheet() {
             </button>
             <div className="min-w-0 text-center">
               <p className="text-[11px] uppercase tracking-widest text-white/70">
-                {inJam ? "Playing in Jam" : "Playing from album"}
+                {inJam ? "Playing in Jam" : episode ? "Playing podcast" : "Playing from album"}
               </p>
               <p className="truncate text-sm font-bold">
                 {inJam ? `${jam?.members.length ?? 1} listening` : current.album}
@@ -133,7 +138,7 @@ export function NowPlayingSheet() {
             )}
           </div>
 
-          {showLyrics ? (
+          {showLyrics && !episode ? (
             <div className="flex min-h-0 flex-1 flex-col py-4">
               <LyricsView track={current} />
             </div>
@@ -151,7 +156,9 @@ export function NowPlayingSheet() {
         <div className="flex items-center gap-4">
           <div className="min-w-0 flex-1">
             <p className="truncate text-2xl font-bold">
-              {current.albumId ? (
+              {showLink ? (
+                <Link to={showLink}>{current.title}</Link>
+              ) : current.albumId ? (
                 <Link to={`/album/${current.albumId}`}>
                   {current.title}
                 </Link>
@@ -160,7 +167,9 @@ export function NowPlayingSheet() {
               )}
             </p>
             <p className="truncate text-base text-white/70">
-              {current.artistId ? (
+              {showLink ? (
+                <Link to={showLink}>{current.artist}</Link>
+              ) : current.artistId ? (
                 <Link to={`/artist/${current.artistId}`}>
                   {current.artist}
                 </Link>
@@ -169,14 +178,16 @@ export function NowPlayingSheet() {
               )}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={toggleStar}
-            aria-label={isStarred ? "Remove from Liked Songs" : "Save to Liked Songs"}
-            className={`flex h-11 w-11 flex-shrink-0 items-center justify-center ${isStarred ? "text-spotify-green" : "text-white"}`}
-          >
-            <HeartIcon filled={isStarred} className="h-7 w-7" />
-          </button>
+          {!episode && (
+            <button
+              type="button"
+              onClick={toggleStar}
+              aria-label={isStarred ? "Remove from Liked Songs" : "Save to Liked Songs"}
+              className={`flex h-11 w-11 flex-shrink-0 items-center justify-center ${isStarred ? "text-spotify-green" : "text-white"}`}
+            >
+              <HeartIcon filled={isStarred} className="h-7 w-7" />
+            </button>
+          )}
         </div>
 
         <div className="mt-5">
@@ -197,15 +208,19 @@ export function NowPlayingSheet() {
         </div>
 
         <div className="mt-3 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={toggleShuffle}
-            aria-label="Shuffle"
-            // A Jam plays its queue in order; keep the slot so controls don't shift.
-            className={`flex h-12 w-12 items-center justify-center ${inJam ? "invisible" : ""} ${shuffle ? "text-spotify-green" : "text-white"}`}
-          >
-            <ShuffleIcon className="h-6 w-6" />
-          </button>
+          {episode ? (
+            <SkipBackButton className="flex h-12 w-12 items-center justify-center" iconClassName="h-8 w-8" />
+          ) : (
+            <button
+              type="button"
+              onClick={toggleShuffle}
+              aria-label="Shuffle"
+              // A Jam plays its queue in order; keep the slot so controls don't shift.
+              className={`flex h-12 w-12 items-center justify-center ${inJam ? "invisible" : ""} ${shuffle ? "text-spotify-green" : "text-white"}`}
+            >
+              <ShuffleIcon className="h-6 w-6" />
+            </button>
+          )}
           <button
             type="button"
             onClick={playPrevious}
@@ -233,29 +248,40 @@ export function NowPlayingSheet() {
           >
             <SkipNextIcon className="h-9 w-9 fill-current" />
           </button>
-          <button
-            type="button"
-            onClick={cycleRepeat}
-            aria-label="Repeat"
-            className={`relative flex h-12 w-12 items-center justify-center ${inJam ? "invisible" : ""} ${repeat !== "off" ? "text-spotify-green" : "text-white"}`}
-          >
-            <RepeatIcon className="h-6 w-6" />
-            {repeat === "one" && <span className="absolute right-1.5 top-1.5 text-[10px] font-bold">1</span>}
-          </button>
+          {episode ? (
+            <SkipForwardButton className="flex h-12 w-12 items-center justify-center" iconClassName="h-8 w-8" />
+          ) : (
+            <button
+              type="button"
+              onClick={cycleRepeat}
+              aria-label="Repeat"
+              className={`relative flex h-12 w-12 items-center justify-center ${inJam ? "invisible" : ""} ${repeat !== "off" ? "text-spotify-green" : "text-white"}`}
+            >
+              <RepeatIcon className="h-6 w-6" />
+              {repeat === "one" && <span className="absolute right-1.5 top-1.5 text-[10px] font-bold">1</span>}
+            </button>
+          )}
         </div>
 
         <div className="mt-4 flex min-h-[1.5rem] items-center">
           <DevicePicker label className="max-w-full" />
           {!remoteDevice && <span className="ml-2 truncate text-xs text-white/60">{thisDevice.name}</span>}
-          <button
-            type="button"
-            onClick={() => setShowLyrics((v) => !v)}
-            aria-label={showLyrics ? "Hide lyrics" : "Show lyrics"}
-            aria-pressed={showLyrics}
-            className={`ml-auto flex h-11 w-11 flex-shrink-0 items-center justify-center ${showLyrics ? "text-spotify-green" : "text-white"}`}
-          >
-            <LyricsIcon className="h-6 w-6" />
-          </button>
+          {episode ? (
+            <>
+              <span className="ml-auto" />
+              <SpeedButton hidden={inJam || Boolean(remoteDevice)} className="h-11 min-w-[2.75rem] px-1 text-sm text-white" />
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowLyrics((v) => !v)}
+              aria-label={showLyrics ? "Hide lyrics" : "Show lyrics"}
+              aria-pressed={showLyrics}
+              className={`ml-auto flex h-11 w-11 flex-shrink-0 items-center justify-center ${showLyrics ? "text-spotify-green" : "text-white"}`}
+            >
+              <LyricsIcon className="h-6 w-6" />
+            </button>
+          )}
           <Link
             to={inJam ? "/jam" : "/queue"}
             aria-label="Queue"

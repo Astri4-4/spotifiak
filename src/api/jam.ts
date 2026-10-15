@@ -16,7 +16,7 @@ function sessionsUrl(): string {
 
 export type JamTrack = Pick<
   Child,
-  "id" | "title" | "artist" | "artistId" | "album" | "albumId" | "coverArt" | "duration"
+  "id" | "title" | "artist" | "artistId" | "album" | "albumId" | "coverArt" | "duration" | "src" | "podcastId"
 >;
 
 export interface JamQueueItem {
@@ -150,8 +150,8 @@ export async function sendJamAction(id: string, action: JamAction): Promise<void
 
 /** Strips a track down to the fields the Jam server keeps. */
 export function toJamTrack(track: Child): JamTrack {
-  const { id, title, artist, artistId, album, albumId, coverArt, duration } = track;
-  return { id, title, artist, artistId, album, albumId, coverArt, duration };
+  const { id, title, artist, artistId, album, albumId, coverArt, duration, src, podcastId } = track;
+  return { id, title, artist, artistId, album, albumId, coverArt, duration, src, podcastId };
 }
 
 /** Normalises user input like "abc 123" or a full invite link to a Jam code. */

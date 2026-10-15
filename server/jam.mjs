@@ -46,6 +46,11 @@
 // see invites.mjs.
 //
 //   /jam-api/invites/...
+//
+// And it keeps everyone's podcasts and where they are in each episode - see
+// podcasts.mjs.
+//
+//   /jam-api/podcasts/...
 
 import http from "node:http";
 import crypto from "node:crypto";
@@ -54,6 +59,7 @@ import { handleHidden } from "./hidden.mjs";
 import { handleMixes, mixForInvite } from "./mixes.mjs";
 import { handleAvatars } from "./avatars.mjs";
 import { handleInvites, rememberPerson } from "./invites.mjs";
+import { handlePodcasts } from "./podcasts.mjs";
 
 const PORT = Number(process.env.JAM_PORT || 3001);
 const HOST = process.env.JAM_HOST || "127.0.0.1";
@@ -196,7 +202,12 @@ const TRACK_FIELDS = {
   albumId: "string",
   coverArt: "string",
   duration: "number",
+  // Podcast episodes: the audio's own URL (not Navidrome's), and their show.
+  src: "string",
+  podcastId: "string",
 };
+/** Longer strings than the default 500 characters: URLs. */
+const LONG_TRACK_FIELDS = new Set(["coverArt", "src"]);
 
 /** Keeps only the track fields the UI needs, with the right types. */
 function sanitizeTracks(tracks, max = MAX_TRACKS_PER_ACTION) {
@@ -207,8 +218,10 @@ function sanitizeTracks(tracks, max = MAX_TRACKS_PER_ACTION) {
     .map((t) => {
       const clean = {};
       for (const [key, type] of Object.entries(TRACK_FIELDS)) {
-        if (typeof t[key] === type) clean[key] = type === "string" ? t[key].slice(0, 500) : t[key];
+        if (typeof t[key] === type) clean[key] = type === "string" ? t[key].slice(0, LONG_TRACK_FIELDS.has(key) ? 2000 : 500) : t[key];
       }
+      // Other people's players load it: only web links.
+      if (clean.src !== undefined && !/^https?:\/\//i.test(clean.src)) delete clean.src;
       return clean;
     });
 }
@@ -632,6 +645,12 @@ async function handle(req, res) {
     const username = await authenticate(url.searchParams);
     if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });
     return handleInvites(req, res, url, username, { readJson, lookup: inviteTarget });
+  }
+
+  if (url.pathname === "/jam-api/podcasts" || url.pathname.startsWith("/jam-api/podcasts/")) {
+    const username = await authenticate(url.searchParams);
+    if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });
+    return handlePodcasts(req, res, url, username, { readJson });
   }
 
   if (url.pathname.startsWith("/jam-api/discover/")) {

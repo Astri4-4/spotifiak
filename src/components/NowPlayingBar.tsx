@@ -8,6 +8,8 @@ import { useNowPlayingSheet } from "@/lib/nowPlayingSheet";
 import { useTrackStar } from "@/lib/trackStar";
 import { openOrCloseRightPanel, shownPanel, useRightPanel, WIDE_QUERY } from "@/lib/rightPanel";
 import { useMediaQuery } from "@/lib/useMediaQuery";
+import { isEpisode } from "@/lib/podcasts";
+import { SkipBackButton, SkipForwardButton, SpeedButton } from "./PodcastControls";
 import {
   HeartIcon,
   JamIcon,
@@ -70,6 +72,9 @@ export function NowPlayingBar() {
   }
 
   const total = duration || current.duration || 0;
+  // Podcast episodes: no likes or lyrics, skip buttons instead of shuffle/repeat, and a speed.
+  const episode = isEpisode(current);
+  const showLink = episode && current.podcastId ? `/podcast/${current.podcastId}` : null;
   const percent = total > 0 ? Math.min(100, (progress / total) * 100) : 0;
 
   return (
@@ -103,17 +108,19 @@ export function NowPlayingBar() {
             <JamIcon className="h-5 w-5" />
           </Link>
         )}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            void toggleStar();
-          }}
-          aria-label={isStarred ? "Remove from Liked Songs" : "Save to Liked Songs"}
-          className={`flex h-10 w-10 flex-shrink-0 items-center justify-center ${isStarred ? "text-spotify-green" : "text-white"}`}
-        >
-          <HeartIcon filled={isStarred} className="h-5 w-5" />
-        </button>
+        {!episode && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              void toggleStar();
+            }}
+            aria-label={isStarred ? "Remove from Liked Songs" : "Save to Liked Songs"}
+            className={`flex h-10 w-10 flex-shrink-0 items-center justify-center ${isStarred ? "text-spotify-green" : "text-white"}`}
+          >
+            <HeartIcon filled={isStarred} className="h-5 w-5" />
+          </button>
+        )}
         <button
           type="button"
           onClick={(e) => {
@@ -152,9 +159,15 @@ export function NowPlayingBar() {
             className="h-12 w-12 flex-shrink-0 rounded object-cover lg:h-14 lg:w-14"
           />
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium hover:underline">{current.title}</p>
+            <p className="truncate text-sm font-medium hover:underline" title={current.title}>
+              {showLink ? <Link to={showLink}>{current.title}</Link> : current.title}
+            </p>
             <p className="truncate text-xs text-spotify-gray">
-              {current.artistId ? (
+              {showLink ? (
+                <Link to={showLink} className="hover:underline">
+                  {current.artist}
+                </Link>
+              ) : current.artistId ? (
                 <Link to={`/artist/${current.artistId}`} className="hover:underline">
                   {current.artist}
                 </Link>
@@ -163,27 +176,33 @@ export function NowPlayingBar() {
               )}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={toggleStar}
-            aria-label={isStarred ? "Remove from Liked Songs" : "Save to Liked Songs"}
-            className={`ml-2 flex-shrink-0 ${isStarred ? "text-spotify-green" : "text-spotify-gray hover:text-white"}`}
-          >
-            <HeartIcon filled={isStarred} className="h-4 w-4" />
-          </button>
+          {!episode && (
+            <button
+              type="button"
+              onClick={toggleStar}
+              aria-label={isStarred ? "Remove from Liked Songs" : "Save to Liked Songs"}
+              className={`ml-2 flex-shrink-0 ${isStarred ? "text-spotify-green" : "text-spotify-gray hover:text-white"}`}
+            >
+              <HeartIcon filled={isStarred} className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
         <div className="flex min-w-0 flex-col items-center gap-2">
           <div className="flex items-center gap-4 lg:gap-5">
-            <button
-              type="button"
-              onClick={toggleShuffle}
-              aria-label="Shuffle"
-              // A Jam plays its queue in order; keep the slot so controls don't shift.
-              className={`${inJam ? "invisible" : ""} ${shuffle ? "text-spotify-green" : "text-spotify-gray hover:text-white"}`}
-            >
-              <ShuffleIcon className="h-4 w-4" />
-            </button>
+            {episode ? (
+              <SkipBackButton className="text-spotify-gray hover:text-white" iconClassName="h-5 w-5" />
+            ) : (
+              <button
+                type="button"
+                onClick={toggleShuffle}
+                aria-label="Shuffle"
+                // A Jam plays its queue in order; keep the slot so controls don't shift.
+                className={`${inJam ? "invisible" : ""} ${shuffle ? "text-spotify-green" : "text-spotify-gray hover:text-white"}`}
+              >
+                <ShuffleIcon className="h-4 w-4" />
+              </button>
+            )}
             <button
               type="button"
               onClick={playPrevious}
@@ -211,17 +230,21 @@ export function NowPlayingBar() {
             >
               <SkipNextIcon className="h-5 w-5 fill-current" />
             </button>
-            <button
-              type="button"
-              onClick={cycleRepeat}
-              aria-label="Repeat"
-              className={`relative ${inJam ? "invisible" : ""} ${repeat !== "off" ? "text-spotify-green" : "text-spotify-gray hover:text-white"}`}
-            >
-              <RepeatIcon className="h-4 w-4" />
-              {repeat === "one" && (
-                <span className="absolute -right-1 -top-1 text-[8px] font-bold">1</span>
-              )}
-            </button>
+            {episode ? (
+              <SkipForwardButton className="text-spotify-gray hover:text-white" iconClassName="h-5 w-5" />
+            ) : (
+              <button
+                type="button"
+                onClick={cycleRepeat}
+                aria-label="Repeat"
+                className={`relative ${inJam ? "invisible" : ""} ${repeat !== "off" ? "text-spotify-green" : "text-spotify-gray hover:text-white"}`}
+              >
+                <RepeatIcon className="h-4 w-4" />
+                {repeat === "one" && (
+                  <span className="absolute -right-1 -top-1 text-[8px] font-bold">1</span>
+                )}
+              </button>
+            )}
           </div>
           <div className="flex w-full max-w-xl items-center gap-2 text-xs text-spotify-gray">
             <span className="hidden w-10 flex-shrink-0 text-right tabular-nums lg:block">{formatDuration(progress)}</span>
@@ -239,21 +262,25 @@ export function NowPlayingBar() {
         </div>
 
         <div className="flex min-w-0 items-center justify-end gap-2 pr-1">
-          <Link
-            to="/lyrics"
-            aria-label="Lyrics"
-            title="Lyrics"
-            onClick={(e) => {
-              // A second click closes them, like the queue.
-              if (pathname === "/lyrics") {
-                e.preventDefault();
-                navigate(-1);
-              }
-            }}
-            className={`flex-shrink-0 ${pathname === "/lyrics" ? "text-spotify-green" : "text-spotify-gray hover:text-white"}`}
-          >
-            <LyricsIcon className="h-4 w-4" />
-          </Link>
+          {episode ? (
+            <SpeedButton hidden={inJam || Boolean(remoteDevice)} className="px-1 text-spotify-gray hover:text-white" />
+          ) : (
+            <Link
+              to="/lyrics"
+              aria-label="Lyrics"
+              title="Lyrics"
+              onClick={(e) => {
+                // A second click closes them, like the queue.
+                if (pathname === "/lyrics") {
+                  e.preventDefault();
+                  navigate(-1);
+                }
+              }}
+              className={`flex-shrink-0 ${pathname === "/lyrics" ? "text-spotify-green" : "text-spotify-gray hover:text-white"}`}
+            >
+              <LyricsIcon className="h-4 w-4" />
+            </Link>
+          )}
           <Link
             // In a Jam, its page is the queue.
             to={inJam ? "/jam" : "/queue"}

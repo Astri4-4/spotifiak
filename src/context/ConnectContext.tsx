@@ -287,6 +287,9 @@ export function ConnectProvider({ children }: { children: ReactNode }) {
       setVolume: (volume) => send({ type: "setVolume", volume }),
       toggleShuffle: () => send({ type: "setShuffle", value: !state.shuffle }),
       cycleRepeat: () => send({ type: "setRepeat", value: nextRepeat }),
+      // A podcast's speed is set on the device playing it.
+      playbackRate: 1,
+      setPlaybackRate: () => {},
     };
   }, [remote, now, local, send]);
 

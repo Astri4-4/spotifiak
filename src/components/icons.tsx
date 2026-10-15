@@ -314,3 +314,39 @@ export function SparkleIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+/** A circular arrow back, with how many seconds it jumps. */
+export function SkipBackSecondsIcon({ seconds, ...props }: SVGProps<SVGSVGElement> & { seconds: number }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3" />
+      <path d="M4.5 3.5v4h4" />
+      <text x="12.2" y="15.3" textAnchor="middle" fontSize="8" fontWeight="700" fill="currentColor" stroke="none">
+        {seconds}
+      </text>
+    </svg>
+  );
+}
+
+/** A circular arrow forward, with how many seconds it jumps. */
+export function SkipForwardSecondsIcon({ seconds, ...props }: SVGProps<SVGSVGElement> & { seconds: number }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" />
+      <path d="M19.5 3.5v4h-4" />
+      <text x="11.8" y="15.3" textAnchor="middle" fontSize="8" fontWeight="700" fill="currentColor" stroke="none">
+        {seconds}
+      </text>
+    </svg>
+  );
+}
+
+/** A microphone: podcasts. */
+export function PodcastIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7" />
+    </svg>
+  );
+}

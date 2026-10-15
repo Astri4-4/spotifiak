@@ -7,6 +7,7 @@ import { refreshPlaylists, usePlaylists } from "@/lib/playlists";
 import { copySongLink } from "@/lib/share";
 import { closeSongMenu, showToast, useSongMenuState, type SongMenuRequest } from "@/lib/songMenu";
 import { useTrackStar } from "@/lib/trackStar";
+import { isEpisode, recordProgress, usePodcasts } from "@/lib/podcasts";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, HeartIcon, PlusIcon, QueueAddIcon, QueueIcon, ShareIcon } from "./icons";
 
@@ -91,7 +92,9 @@ function MenuPopup({ request }: { request: SongMenuRequest }) {
             </span>
           </div>
         )}
-        {view === "main" ? (
+        {isEpisode(track) ? (
+          <EpisodeItems request={request} large={isTouch} />
+        ) : view === "main" ? (
           <MainItems request={request} onShowPlaylists={() => setView("playlists")} large={isTouch} />
         ) : (
           <PlaylistItems request={request} onBack={() => setView("main")} large={isTouch} />
@@ -184,6 +187,55 @@ function MainItems({
         <Item large={large} onClick={() => run(() => navigate(`/artist/${track.artistId}`))}>
           Go to artist
         </Item>
+      )}
+    </>
+  );
+}
+
+/** A podcast episode's menu: no likes or playlists, which are Navidrome's. */
+function EpisodeItems({ request, large }: { request: SongMenuRequest; large: boolean }) {
+  const { track } = request;
+  const { inJam, addNext, enqueue } = usePlayer();
+  const { progress } = usePodcasts();
+  const navigate = useNavigate();
+  const played = progress[track.id]?.done ?? false;
+
+  function run(action: () => void, toast?: string) {
+    action();
+    closeSongMenu();
+    if (toast) showToast(toast);
+  }
+
+  return (
+    <>
+      {!inJam && (
+        <Item large={large} icon={<QueueIcon className="h-4 w-4" />} onClick={() => run(() => addNext([track]), "Playing next")}>
+          Play next
+        </Item>
+      )}
+      <Item
+        large={large}
+        icon={<QueueAddIcon className="h-4 w-4" />}
+        onClick={() => run(() => enqueue([track]), inJam ? "Added to the Jam" : "Added to queue")}
+      >
+        {inJam ? "Add to Jam queue" : "Add to queue"}
+      </Item>
+      <Item
+        large={large}
+        icon={<CheckIcon className="h-4 w-4" />}
+        onClick={() =>
+          run(() => recordProgress(track.id, 0, track.duration ?? 0, !played), played ? "Marked as unplayed" : "Marked as played")
+        }
+      >
+        {played ? "Mark as unplayed" : "Mark as played"}
+      </Item>
+      {track.podcastId && (
+        <>
+          <hr className="my-1 border-white/10" />
+          <Item large={large} onClick={() => run(() => navigate(`/podcast/${track.podcastId}`))}>
+            Go to show
+          </Item>
+        </>
       )}
     </>
   );

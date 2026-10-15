@@ -35,6 +35,15 @@ Turn on **Discover** in Search to search Deezer instead of your library: listen 
 - Set the deemix server with `DEEMIX_URL` on the Spotifiak server, or from **Settings → Discover** (Navidrome admins only; saved in `JAM_DATA_DIR`, `/opt/jam/data` in the Docker image - mount a volume there to keep it). Leave it empty to turn Discover off.
 - The desktop and mobile apps use the Discover of their Jam server.
 
+## Podcasts
+
+**Podcasts** (in the sidebar, or Your Library on phones): search the Apple Podcasts directory or paste a show's RSS link, follow shows, and see their new episodes. Episodes play in the same player and queue as songs, with 15 s back / 30 s forward buttons and a playback speed (0.8× to 2×, remembered on each device), and pick up where you left them, on any device. Near the end counts as played; "Mark as played" in an episode's menu does it by hand.
+
+- Navidrome has no podcast support (its Subsonic podcast endpoints answer "not implemented"), so the Jam server does it: `server/podcasts.mjs` reads the shows' public RSS feeds (cached for 15 minutes) and keeps each person's shows and listening progress in `JAM_DATA_DIR/podcasts.json` (lost on restart without a writable one, like Mixes). Nothing goes into the music library, and episodes aren't scrobbled.
+- Apps stream episodes straight from the publisher, like any podcast app, so it's free and needs no account; shows only on Spotify, or paid ones, have no public feed (a private feed link, e.g. from Patreon, works).
+- The server fetches the feed links people give it, so it refuses addresses on private networks; set `PODCASTS_ALLOW_PRIVATE=1` to allow feeds hosted on your own network.
+- Episodes work in a Jam and across devices too. In a Jam they play at normal speed, to stay in sync.
+
 ## Library
 
 - **Artist pages** show their popular songs, albums apart from singles and EPs, a biography and similar artists in the library. Popular songs, the biography and similar artists come from Last.fm through Navidrome (`getTopSongs`, `getArtistInfo2`), so they need Last.fm set up there (`ND_LASTFM_APIKEY`/`ND_LASTFM_SECRET`); without it, the page shows the artist's songs you play the most instead.

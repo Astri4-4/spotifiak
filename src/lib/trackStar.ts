@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { getSong, star, unstar } from "@/api/subsonic";
+import { isEpisode } from "./podcasts";
 import type { Child } from "@/types/subsonic";
 
 // Whether songs are in Liked Songs, shared by every control showing one (the
@@ -34,7 +35,8 @@ export function setStarred(id: string, value: boolean) {
 
 /** Asks the server whether a song is liked (once at a time per song). */
 function lookup(id: string) {
-  if (fetching.has(id)) return;
+  // Podcast episodes aren't in Navidrome, so they can't be liked.
+  if (fetching.has(id) || isEpisode({ id })) return;
   fetching.add(id);
   const startedAt = Date.now();
   getSong(id)

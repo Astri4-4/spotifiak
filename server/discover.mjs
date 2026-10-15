@@ -12,6 +12,7 @@
 //   GET  /jam-api/discover/config           { available, url?, canEdit }
 //   POST /jam-api/discover/config           { url } - Navidrome admins only
 //   GET  /jam-api/discover/search?q&type    type: "track" | "album"
+//   GET  /jam-api/discover/album?id         a Deezer album's tracks (to see what the library lacks)
 //   POST /jam-api/discover/downloads        { type, id } - start a download
 //   GET  /jam-api/discover/downloads        this user's downloads and their progress
 //
@@ -31,6 +32,8 @@ const DEEMIX_TIMEOUT_MS = 15_000;
 const ADMIN_TTL_MS = 10 * 60 * 1000;
 const MAX_TRACKED_DOWNLOADS = 500;
 const SEARCH_LIMIT = 30;
+/** Deezer's public API: tracklists, which deemix's search results don't have. */
+const DEEZER_API = "https://api.deezer.com";
 
 let deemixUrl = loadDeemixUrl();
 /** deemix's session cookie, which it ties its Deezer login to. */
@@ -257,6 +260,32 @@ async function route(req, res, url, username, navidromeUrl, readJson) {
     const found = await deemix(`search?${query}`);
     const data = Array.isArray(found?.data) ? found.data : [];
     return json(res, 200, { results: data.map(type === "album" ? cleanAlbum : cleanTrack) });
+  }
+
+  if (sub === "album") {
+    if (req.method !== "GET") throw new DiscoverError(405, "Method not allowed.");
+    if (!deemixUrl) throw new DiscoverError(503, "Discover isn't set up on this server.");
+    const id = url.searchParams.get("id") ?? "";
+    if (!/^\d{1,20}$/.test(id)) throw new DiscoverError(400, "Invalid album.");
+    let data;
+    try {
+      const r = await fetch(`${DEEZER_API}/album/${id}/tracks?limit=500`, { signal: AbortSignal.timeout(DEEMIX_TIMEOUT_MS) });
+      data = await r.json();
+    } catch (err) {
+      console.error(`[discover] could not reach Deezer: ${err.message}`);
+      throw new DiscoverError(503, "The server couldn't reach Deezer.");
+    }
+    if (data?.error) throw new DiscoverError(404, "Deezer doesn't have that album.");
+    const tracks = (Array.isArray(data?.data) ? data.data : []).map((t) => ({
+      id: String(t.id),
+      title: str(t.title),
+      disc: num(t.disk_number) || 1,
+      track: num(t.track_position),
+      duration: num(t.duration),
+      // Deezer lists tracks it can't stream (rights): deemix can't get them either.
+      available: t.readable !== false,
+    }));
+    return json(res, 200, { tracks });
   }
 
   if (sub === "downloads") {

@@ -84,6 +84,8 @@ const MAX_QUEUE = 1000;
 const MAX_TRACKS_PER_ACTION = 200;
 const MAX_BODY_BYTES = 1024 * 1024;
 const MAX_DEVICE_QUEUE = 500;
+/** How long the active device's playback outlives its dropped connection. */
+const DEVICE_GRACE_MS = 15 * 1000;
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I
 
 /** @type {Map<string, Session>} */
@@ -564,13 +566,24 @@ function openDeviceEvents(res, username, home, device) {
   res.on("close", () => {
     if (home.devices.get(device.id) !== device) return;
     home.devices.delete(device.id);
-    if (home.active?.deviceId === device.id) home.active = null;
-    if (home.devices.size === 0) {
-      homes.delete(username);
-    } else {
-      broadcastHome(home);
+    // A dropped stream usually comes straight back (EventSource reconnects by
+    // itself, e.g. after a proxy timeout or a network change): keep what the
+    // active device plays for a moment, so a blip doesn't lose it.
+    if (home.active?.deviceId === device.id) {
+      setTimeout(() => {
+        if (home.active?.deviceId !== device.id || home.devices.has(device.id)) return;
+        home.active = null;
+        forgetIfEmpty(username, home);
+      }, DEVICE_GRACE_MS).unref();
     }
+    forgetIfEmpty(username, home);
   });
+}
+
+/** Drops an account with no devices left (and nothing about to come back), or tells the others. */
+function forgetIfEmpty(username, home) {
+  if (home.devices.size > 0) broadcastHome(home);
+  else if (!home.active && homes.get(username) === home) homes.delete(username);
 }
 
 async function handleDevices(req, res, url, username, sub) {
@@ -608,6 +621,13 @@ async function handleDevices(req, res, url, username, sub) {
   const command = make(body.command, home);
   if (!command) return json(res, 409, { error: "Nothing is playing." });
   send(target.res, "command", { from: deviceId, command });
+  // Playback moves: the device that had it stops, even if the target can't
+  // start yet (a browser tab that needs a click first), so they don't fight
+  // over being the active device.
+  if (command.type === "transfer") {
+    const previous = home.devices.get(home.active.deviceId);
+    if (previous && previous !== target) send(previous.res, "command", { from: deviceId, command: { type: "pause" } });
+  }
   return json(res, 204);
 }
 

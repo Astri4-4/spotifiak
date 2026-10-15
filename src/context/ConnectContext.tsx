@@ -70,6 +70,8 @@ export function ConnectProvider({ children }: { children: ReactNode }) {
     [deviceId, deviceName],
   );
   const [snapshot, setSnapshot] = useState<DevicesSnapshot | null>(null);
+  // Bumped on every (re)connection, so this device republishes what it plays.
+  const [connection, setConnection] = useState(0);
   const offsetRef = useRef(0); // server clock - local clock, in ms
   const available = connectAvailable();
 
@@ -155,6 +157,8 @@ export function ConnectProvider({ children }: { children: ReactNode }) {
 
     const connect = () => {
       es = new EventSource(url);
+      // The server registers the device before answering: publishing works from here.
+      es.onopen = () => setConnection((n) => n + 1);
       es.addEventListener("devices", (e: MessageEvent<string>) => {
         const snap = JSON.parse(e.data) as DevicesSnapshot;
         offsetRef.current = snap.now - Date.now();
@@ -185,7 +189,16 @@ export function ConnectProvider({ children }: { children: ReactNode }) {
   const active: ActiveDevice | null = snapshot?.active ?? null;
   const thisIsActive = active?.deviceId === deviceId;
   const remote = !local.inJam && active && !thisIsActive ? active : null;
-  const remoteDevice = remote ? (snapshot?.devices.find((d) => d.id === remote.deviceId) ?? null) : null;
+  // Names of the devices seen: the server keeps the active device's playback a
+  // few seconds after its connection drops (it usually comes back), while it's
+  // already off the device list.
+  const knownDevicesRef = useRef(new Map<string, ConnectDevice>());
+  useEffect(() => {
+    for (const d of snapshot?.devices ?? []) knownDevicesRef.current.set(d.id, d);
+  }, [snapshot?.devices]);
+  const remoteDevice = remote
+    ? (snapshot?.devices.find((d) => d.id === remote.deviceId) ?? knownDevicesRef.current.get(remote.deviceId) ?? null)
+    : null;
 
   // ---- publishing this device's playback --------------------------------------
 
@@ -216,6 +229,7 @@ export function ConnectProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     connected,
+    connection,
     thisIsActive,
     local.inJam,
     local.isPlaying,

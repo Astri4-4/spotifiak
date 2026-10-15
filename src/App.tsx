@@ -22,6 +22,8 @@ import { Mixes } from "@/pages/Mixes";
 import { Mix } from "@/pages/Mix";
 import { Lyrics } from "@/pages/Lyrics";
 import { SmartPlaylist } from "@/pages/SmartPlaylist";
+import { Podcasts } from "@/pages/Podcasts";
+import { Podcast } from "@/pages/Podcast";
 
 export default function App() {
   return (
@@ -48,6 +50,8 @@ export default function App() {
                   <Route path="/jam/:code" element={<JoinJam />} />
                   <Route path="/mixes" element={<Mixes />} />
                   <Route path="/mix/:code" element={<Mix />} />
+                  <Route path="/podcasts" element={<Podcasts />} />
+                  <Route path="/podcast/:id" element={<Podcast />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/activity" element={<Activity />} />
                 </Route>

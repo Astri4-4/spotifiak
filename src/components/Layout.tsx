@@ -17,6 +17,7 @@ import { openOrCloseRightPanel, setRightPanel, shownPanel, useRightPanel, WIDE_Q
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { useInvitePolling } from "@/lib/invites";
 import { useHiddenLoader } from "@/lib/hidden";
+import { usePodcastsLoader } from "@/lib/podcasts";
 import { useAuth } from "@/context/AuthContext";
 
 const PANEL_TITLES = { friends: "Friend activity", queue: "Queue", jam: "Jam" };
@@ -31,6 +32,7 @@ export function Layout() {
   const { username } = useAuth();
   useInvitePolling(username);
   useHiddenLoader(username);
+  usePodcastsLoader(username);
 
   // The page scrolls inside <main>, not the window, so reset it on navigation.
   useEffect(() => {

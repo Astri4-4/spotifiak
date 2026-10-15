@@ -216,6 +216,8 @@ export async function getLyrics(artist: string | undefined, title: string): Prom
 /** Builds an <img> src for cover art. Pass undefined/null coverArt to get a stable placeholder. */
 export function coverArtUrl(coverArt: string | undefined | null, size = 300): string {
   if (!coverArt) return "/placeholder-cover.svg";
+  // Podcasts' artwork is a link to the publisher's image.
+  if (/^https?:\/\//i.test(coverArt)) return coverArt;
   return buildUrl("getCoverArt", { id: coverArt, size });
 }
 

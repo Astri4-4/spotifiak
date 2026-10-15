@@ -14,6 +14,7 @@ import { coverArtUrl, scrobble, streamUrl } from "@/api/subsonic";
 import { reportPlay } from "@/api/scoreboard";
 import { toJamTrack } from "@/api/jam";
 import { getShareListening } from "@/lib/sharing";
+import { getEpisodeProgress, isEpisode, PLAYBACK_RATES, recordProgress, SKIP_BACK, SKIP_FORWARD } from "@/lib/podcasts";
 import type { Child } from "@/types/subsonic";
 import { useJam } from "./JamContext";
 
@@ -22,6 +23,20 @@ export type RepeatMode = "off" | "all" | "one";
 /** How far (seconds) a Jam listener may drift from the shared playhead before we re-seek. */
 const JAM_SYNC_TOLERANCE = 0.75;
 const JAM_DRIFT_CHECK_MS = 3000;
+/** How often (ms) the position in a podcast episode is saved while it plays. */
+const EPISODE_SAVE_MS = 15_000;
+/** Resuming an episode goes back a little, to pick up the thread. */
+const EPISODE_RESUME_REWIND = 3;
+const RATE_KEY = "spotifiak.podcastRate";
+
+function loadRate(): number {
+  try {
+    const r = Number(localStorage.getItem(RATE_KEY));
+    return PLAYBACK_RATES.includes(r) ? r : 1;
+  } catch {
+    return 1;
+  }
+}
 
 /** Where to start a queue: used when playback is moved here from another device. */
 export interface PlayQueueOptions {
@@ -71,6 +86,9 @@ export interface PlayerContextValue {
   cycleRepeat: () => void;
   /** Bumped on every seek (so the playback can be republished to other devices). */
   seekCount: number;
+  /** Podcast episodes' speed (songs always play at 1, and so does a Jam, to stay in sync). */
+  playbackRate: number;
+  setPlaybackRate: (rate: number) => void;
 }
 
 const LocalPlayerContext = createContext<PlayerContextValue | undefined>(undefined);
@@ -118,6 +136,11 @@ export function LocalPlayerProvider({ children }: { children: ReactNode }) {
   const [repeat, setRepeat] = useState<RepeatMode>("off");
   const [audioBlocked, setAudioBlocked] = useState(false);
   const [seekCount, setSeekCount] = useState(0);
+  const [playbackRate, setPlaybackRateState] = useState(loadRate);
+  /** When the current episode's position was last saved. */
+  const episodeSavedAtRef = useRef(0);
+  /** The track the <audio> has loaded (`current` moves on before it does). */
+  const loadedRef = useRef<Child | null>(null);
   // Options of the playQueue() call that loaded the current queue, used once by the load effect.
   const pendingStartRef = useRef<PlayQueueOptions | null>(null);
 
@@ -157,25 +180,36 @@ export function LocalPlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
+    // Leaving an episode partway: remember where.
+    const previous = loadedRef.current;
+    if (previous && isEpisode(previous) && audio.readyState > 0 && !audio.ended) {
+      recordProgress(previous.id, audio.currentTime, Number.isFinite(audio.duration) ? audio.duration : (previous.duration ?? 0));
+    }
+    loadedRef.current = current;
     if (!current) {
       audio.pause();
       audio.removeAttribute("src");
       return;
     }
     scrobbledRef.current = false;
-    audio.src = streamUrl(current.id);
+    episodeSavedAtRef.current = Date.now();
+    const episode = isEpisode(current) && current.src;
+    audio.src = episode || streamUrl(current.id);
     if (inJam) {
       audio.currentTime = expectedPosition();
       if (jam?.playing) tryPlay();
     } else {
       const start = pendingStartRef.current;
       pendingStartRef.current = null;
-      audio.currentTime = start?.position ?? 0;
+      // An episode carries on where you left it.
+      const saved = episode ? getEpisodeProgress(current.id) : undefined;
+      const resume = saved && !saved.done ? Math.max(0, saved.p - EPISODE_RESUME_REWIND) : 0;
+      audio.currentTime = start?.position ?? resume;
       if (start?.paused) setLocalPlaying(false);
       else tryPlay();
     }
-    // Best-effort "now playing", which other users see in Friend activity.
-    if (getShareListening()) scrobble(current.id, false).catch(() => void 0);
+    // Best-effort "now playing", which other users see in Friend activity (songs only: Navidrome doesn't know episodes).
+    if (!episode && getShareListening()) scrobble(current.id, false).catch(() => void 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sourceKey]);
 
@@ -197,6 +231,39 @@ export function LocalPlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = volume;
   }, [volume]);
+
+  // Speed: episodes only, and never in a Jam. A new source resets it, hence sourceKey.
+  const effectiveRate = isEpisode(current) && !inJam ? playbackRate : 1;
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.defaultPlaybackRate = effectiveRate;
+    audio.playbackRate = effectiveRate;
+  }, [effectiveRate, sourceKey]);
+
+  const setPlaybackRate = useCallback((rate: number) => {
+    if (!PLAYBACK_RATES.includes(rate)) return;
+    setPlaybackRateState(rate);
+    try {
+      localStorage.setItem(RATE_KEY, String(rate));
+    } catch {
+      // Not remembered on this device, that's all.
+    }
+  }, []);
+
+  /** Saves where we are in the current episode (if it is one). */
+  const saveEpisodePosition = useCallback(
+    (played?: boolean) => {
+      const audio = audioRef.current;
+      const track = loadedRef.current;
+      // Nothing loaded yet (e.g. the pause a new source causes): nothing to save.
+      if (!audio || !track || !isEpisode(track) || audio.readyState === 0) return;
+      episodeSavedAtRef.current = Date.now();
+      const total = Number.isFinite(audio.duration) ? audio.duration : (track.duration ?? 0);
+      recordProgress(track.id, audio.currentTime, total, played);
+    },
+    [],
+  );
 
   const resumeAudio = useCallback(() => {
     const audio = audioRef.current;
@@ -400,6 +467,8 @@ export function LocalPlayerProvider({ children }: { children: ReactNode }) {
       ["nexttrack", () => controls.current.playNext()],
       ["previoustrack", () => controls.current.playPrevious()],
       ["seekto", ({ seekTime }) => seekTime != null && controls.current.seek(seekTime)],
+      ["seekbackward", () => controls.current.seek(Math.max(0, (audioRef.current?.currentTime ?? 0) - SKIP_BACK))],
+      ["seekforward", () => controls.current.seek((audioRef.current?.currentTime ?? 0) + SKIP_FORWARD)],
     ];
     for (const [action, handler] of handlers) {
       MediaSession.setActionHandler({ action }, handler).catch(ignoreError);
@@ -430,9 +499,9 @@ export function LocalPlayerProvider({ children }: { children: ReactNode }) {
     MediaSession.setPositionState({
       duration: total,
       position: Math.min(audio.currentTime, total),
-      playbackRate: 1,
+      playbackRate: effectiveRate,
     }).catch(ignoreError);
-  }, [current?.duration]);
+  }, [current?.duration, effectiveRate]);
 
   useEffect(updatePositionState, [isPlaying, duration, updatePositionState]);
 
@@ -477,6 +546,8 @@ export function LocalPlayerProvider({ children }: { children: ReactNode }) {
       toggleShuffle,
       cycleRepeat,
       seekCount,
+      playbackRate,
+      setPlaybackRate,
     }),
     [
       queue,
@@ -506,6 +577,8 @@ export function LocalPlayerProvider({ children }: { children: ReactNode }) {
       toggleShuffle,
       cycleRepeat,
       seekCount,
+      playbackRate,
+      setPlaybackRate,
     ],
   );
 
@@ -518,7 +591,9 @@ export function LocalPlayerProvider({ children }: { children: ReactNode }) {
           const audio = e.currentTarget;
           const t = audio.currentTime;
           setProgress(t);
-          if (!scrobbledRef.current && current?.duration && t > current.duration * 0.5) {
+          if (isEpisode(current)) {
+            if (!audio.paused && Date.now() - episodeSavedAtRef.current > EPISODE_SAVE_MS) saveEpisodePosition();
+          } else if (!scrobbledRef.current && current?.duration && t > current.duration * 0.5) {
             scrobbledRef.current = true;
             scrobble(current.id, true).catch(() => void 0);
             if (getShareListening()) reportPlay(current.id).catch(() => void 0);
@@ -540,8 +615,13 @@ export function LocalPlayerProvider({ children }: { children: ReactNode }) {
           setSeekCount((n) => n + 1);
         }}
         onPlay={() => setLocalPlaying(true)}
-        onPause={() => setLocalPlaying(false)}
+        onPause={(e) => {
+          setLocalPlaying(false);
+          // Not when it ended or moved on: those save themselves.
+          if (!e.currentTarget.ended) saveEpisodePosition();
+        }}
         onEnded={() => {
+          saveEpisodePosition(true);
           if (inJam) {
             // Every listener reports; the server only advances once per track.
             if (jamItem) void act({ type: "ended", uid: jamItem.uid });

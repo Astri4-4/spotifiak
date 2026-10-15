@@ -18,6 +18,7 @@ import { useMediaQuery } from "@/lib/useMediaQuery";
 import { useInvitePolling } from "@/lib/invites";
 import { useHiddenLoader } from "@/lib/hidden";
 import { usePodcastsLoader } from "@/lib/podcasts";
+import { useEventsLoader } from "@/lib/events";
 import { useAuth } from "@/context/AuthContext";
 
 const PANEL_TITLES = { friends: "Friend activity", queue: "Queue", jam: "Jam" };
@@ -33,6 +34,7 @@ export function Layout() {
   useInvitePolling(username);
   useHiddenLoader(username);
   usePodcastsLoader(username);
+  useEventsLoader(username);
 
   // The page scrolls inside <main>, not the window, so reset it on navigation.
   useEffect(() => {

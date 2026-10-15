@@ -24,6 +24,7 @@ import { Lyrics } from "@/pages/Lyrics";
 import { SmartPlaylist } from "@/pages/SmartPlaylist";
 import { Podcasts } from "@/pages/Podcasts";
 import { Podcast } from "@/pages/Podcast";
+import { Calendar } from "@/pages/Calendar";
 
 export default function App() {
   return (
@@ -52,6 +53,7 @@ export default function App() {
                   <Route path="/mix/:code" element={<Mix />} />
                   <Route path="/podcasts" element={<Podcasts />} />
                   <Route path="/podcast/:id" element={<Podcast />} />
+                  <Route path="/calendar" element={<Calendar />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/activity" element={<Activity />} />
                 </Route>

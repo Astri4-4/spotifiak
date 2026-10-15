@@ -17,6 +17,8 @@ import { removeMyAvatar, setMyAvatar, useAvatarUrl } from "@/lib/avatars";
 import { setShortcutsOpen } from "@/lib/shortcutsDialog";
 import { setDiscoverConfig, useDiscoverConfig } from "@/lib/discover";
 import { setDiscoverUrl } from "@/api/discover";
+import { getEventsConfig, setTicketmasterKey, type EventsConfig } from "@/api/events";
+import { refreshEvents } from "@/lib/events";
 import { getServerConfig, serversConfigurable, setServerConfig, type ServerConfig } from "@/lib/servers";
 import { ACCENT_COLORS, resolveTheme, setTheme, THEMES, useTheme, type Theme } from "@/lib/theme";
 import {
@@ -147,6 +149,10 @@ export function Settings() {
 
       <Section title="Discover">
         <DiscoverSettings />
+      </Section>
+
+      <Section title="Calendar">
+        <CalendarSettings />
       </Section>
 
       {/* Only where there's likely a keyboard: devices with a mouse or trackpad. */}
@@ -672,6 +678,103 @@ function DiscoverSettings() {
       >
         Save
       </button>
+    </form>
+  );
+}
+
+/** The Ticketmaster key the calendar finds concerts with. It's kept on the Jam server, set by Navidrome admins. */
+function CalendarSettings() {
+  const [config, setConfig] = useState<EventsConfig | null | undefined>(undefined);
+  const [key, setKey] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<Status>(null);
+
+  useEffect(() => {
+    getEventsConfig()
+      .then(setConfig)
+      .catch(() => setConfig(null));
+  }, []);
+
+  if (config === undefined) return <p className="text-sm text-spotify-gray">Loading...</p>;
+  if (config === null) return <p className="text-sm text-spotify-gray">The calendar needs a Jam server.</p>;
+
+  if (!config.canEdit) {
+    return (
+      <p className="text-sm text-spotify-gray">
+        {config.concertsAvailable
+          ? "The calendar shows new releases and concerts of the artists you follow."
+          : "The calendar shows new releases of the artists you follow. A Navidrome admin can add concerts here."}
+      </p>
+    );
+  }
+
+  async function save(value: string) {
+    setSaving(true);
+    setStatus(null);
+    try {
+      const next = await setTicketmasterKey(value);
+      setConfig(next);
+      setKey("");
+      void refreshEvents();
+      setStatus(
+        next.persisted === false
+          ? { kind: "warning", message: "Saved, but only until the server restarts: set TICKETMASTER_API_KEY on it to keep it." }
+          : { kind: "success", message: value ? "Saved. Concerts will show up in a few minutes." : "Removed." },
+      );
+    } catch (err) {
+      setStatus({ kind: "error", message: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const statusColor = { success: "text-spotify-green", warning: "text-yellow-500", error: "text-red-400" };
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        void save(key.trim());
+      }}
+      className="flex flex-col gap-3"
+    >
+      <label className="flex flex-col gap-2 text-sm font-semibold">
+        <span>
+          Ticketmaster API key <span className="font-normal text-spotify-gray">(admins only)</span>
+        </span>
+        <input
+          type="password"
+          autoComplete="off"
+          value={key}
+          onChange={(e) => setKey(e.target.value)}
+          placeholder={config.hasKey ? "A key is set: enter a new one to replace it" : config.concertsAvailable ? "Set on the server" : "Consumer Key"}
+          className="rounded-md border border-white/20 bg-transparent px-3 py-3 text-sm font-normal outline-none focus:border-white"
+        />
+        <span className="text-xs font-normal text-spotify-gray">
+          For concerts in the calendar. Free from developer.ticketmaster.com (the app's "Consumer Key"). It stays on the
+          Spotifiak server. Releases need nothing: they come from MusicBrainz.
+        </span>
+      </label>
+      {status && <p className={`text-sm ${statusColor[status.kind]}`}>{status.message}</p>}
+      <div className="flex justify-end gap-2">
+        {config.hasKey && (
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => void save("")}
+            className="rounded-full px-5 py-2 text-sm font-semibold text-spotify-gray hover:text-white disabled:opacity-40"
+          >
+            Remove
+          </button>
+        )}
+        <button
+          type="submit"
+          disabled={!key.trim() || saving}
+          className="rounded-full bg-spotify-green px-5 py-2 text-sm font-bold text-on-accent transition hover:bg-spotify-green-bright disabled:opacity-40"
+        >
+          Save
+        </button>
+      </div>
     </form>
   );
 }

@@ -13,7 +13,7 @@ import { MediaCard, MediaRow } from "@/components/MediaCard";
 import { Loading } from "@/components/Loading";
 import { CardGrid } from "@/components/CardGrid";
 import { CreatePlaylistButton } from "@/components/CreatePlaylistButton";
-import { HeartIcon, MixIcon, PlusIcon, PodcastIcon } from "@/components/icons";
+import { CalendarIcon, HeartIcon, MixIcon, PlusIcon, PodcastIcon } from "@/components/icons";
 import { PHONE_QUERY, useMediaQuery } from "@/lib/useMediaQuery";
 import { ListControls } from "@/components/ListControls";
 import { byText, matches, useSortChoice, type SortOption } from "@/lib/listSort";
@@ -46,6 +46,12 @@ const mixesArt = (
 const podcastsArt = (
   <span className="flex h-full w-full items-center justify-center rounded bg-gradient-to-br from-teal-700 to-amber-300">
     <PodcastIcon className="h-1/3 w-1/3 text-pure-white" />
+  </span>
+);
+
+const calendarArt = (
+  <span className="flex h-full w-full items-center justify-center rounded bg-gradient-to-br from-rose-600 to-orange-300">
+    <CalendarIcon className="h-1/3 w-1/3 text-pure-white" />
   </span>
 );
 
@@ -111,6 +117,7 @@ export function Library() {
           { to: "/liked", art: likedSongsArt, title: "Liked Songs", subtitle: "Playlist" },
           { to: "/mixes", art: mixesArt, title: "Mixes", subtitle: "Blended with friends" },
           { to: "/podcasts", art: podcastsArt, title: "Podcasts", subtitle: "Your shows and new episodes" },
+          { to: "/calendar", art: calendarArt, title: "Calendar", subtitle: "Releases and concerts of artists you follow" },
           ...SMART_PLAYLISTS.map((p) => ({ to: `/smart/${p.id}`, art: <SmartPlaylistArt playlist={p} />, title: p.name, subtitle: p.description })),
         ].filter((item) => matches(query, item.title))
       : [];

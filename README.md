@@ -50,6 +50,15 @@ Turn on **Discover** in Search to search Deezer instead of your library: listen 
 - The server fetches the feed links people give it, so it refuses addresses on private networks; set `PODCASTS_ALLOW_PRIVATE=1` to allow feeds hosted on your own network.
 - Episodes work in a Jam and across devices too. In a Jam they play at normal speed, to stay in sync.
 
+## Calendar
+
+**Calendar** (in the sidebar, or Your Library on phones): new releases and concerts of the artists you follow. Follow an artist from their page, or from your most played ones on the calendar page; see it as a list or a month, only releases or concerts, and concerts only in your country. Events found since you last looked are marked new, with their count in the sidebar. "Add to your calendar" gives a private link to subscribe to from Google Calendar, Apple Calendar or Outlook.
+
+- Releases come from [MusicBrainz](https://musicbrainz.org) (free, no key): announced albums often show up there before they're out, and the last 60 days' stay as "recently released". Artists are matched by the MusicBrainz id in your files' tags, or else by name.
+- Concerts come from Ticketmaster's [Discovery API](https://developer.ticketmaster.com) (free, 5000 requests a day): a Navidrome admin adds the key in **Settings → Calendar**, or set `TICKETMASTER_API_KEY` on the Spotifiak server. Small venues and festivals not sold there are missing.
+- The Jam server does the lookups (`server/events.mjs`), in the background: each artist at most once a day for releases and twice a day for concerts, shared by everyone following them. It keeps everything in `JAM_DATA_DIR/events.json` (lost on restart without a writable one).
+- The calendar link works without logging in (calendar apps can't), so anyone who has it sees that calendar; "Make a new link" stops the old one working.
+
 ## Library
 
 - **Artist pages** show their popular songs, albums apart from singles and EPs, a biography and similar artists in the library. Popular songs, the biography and similar artists come from Last.fm through Navidrome (`getTopSongs`, `getArtistInfo2`), so they need Last.fm set up there (`ND_LASTFM_APIKEY`/`ND_LASTFM_SECRET`); without it, the page shows the artist's songs you play the most instead.

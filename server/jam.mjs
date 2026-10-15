@@ -56,6 +56,11 @@
 // podcasts.mjs.
 //
 //   /jam-api/podcasts/...
+//
+// And it keeps the event calendar: upcoming releases and concerts of the
+// artists each person follows - see events.mjs.
+//
+//   /jam-api/events/...
 
 import http from "node:http";
 import crypto from "node:crypto";
@@ -66,6 +71,7 @@ import { handleMixes, mixForInvite } from "./mixes.mjs";
 import { handleAvatars } from "./avatars.mjs";
 import { handleInvites, rememberPerson } from "./invites.mjs";
 import { handlePodcasts } from "./podcasts.mjs";
+import { handleEvents, handleEventsIcs } from "./events.mjs";
 
 const PORT = Number(process.env.JAM_PORT || 3001);
 const HOST = process.env.JAM_HOST || "127.0.0.1";
@@ -663,6 +669,15 @@ async function handle(req, res) {
     const username = await authenticate(url.searchParams);
     if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });
     return handleScoreboard(req, res, url, username, { navidromeUrl: NAVIDROME_URL, readJson });
+  }
+
+  // Calendar apps fetch this one without a Navidrome login: its token is the key.
+  if (req.method === "GET" && url.pathname.startsWith("/jam-api/events/ics/")) return handleEventsIcs(req, res, url);
+
+  if (url.pathname === "/jam-api/events" || url.pathname.startsWith("/jam-api/events/")) {
+    const username = await authenticate(url.searchParams);
+    if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });
+    return handleEvents(req, res, url, username, { navidromeUrl: NAVIDROME_URL, readJson });
   }
 
   if (url.pathname.startsWith("/jam-api/discover/")) {

@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { usePlaylists } from "@/lib/playlists";
-import { HeartIcon, HomeIcon, JamIcon, LibraryIcon, MixIcon, PlusIcon, PodcastIcon, SearchIcon } from "./icons";
+import { CalendarIcon, HeartIcon, HomeIcon, JamIcon, LibraryIcon, MixIcon, PlusIcon, PodcastIcon, SearchIcon } from "./icons";
+import { useEvents } from "@/lib/events";
 import { useJam } from "@/context/JamContext";
 import { isWide, openOrCloseRightPanel, shownPanel, useRightPanel, WIDE_QUERY } from "@/lib/rightPanel";
 import { useMediaQuery } from "@/lib/useMediaQuery";
@@ -16,6 +17,7 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
 export function Sidebar() {
   const playlists = usePlaylists() ?? [];
   const { jamId } = useJam();
+  const { newCount } = useEvents();
   // Wide screens open the Jam beside the page.
   const wide = useMediaQuery(WIDE_QUERY);
   const jamPanelOpen = shownPanel(useRightPanel(), jamId !== null) === "jam";
@@ -53,6 +55,15 @@ export function Sidebar() {
           <NavLink to="/podcasts" className={navLinkClass}>
             <PodcastIcon className="h-6 w-6" />
             Podcasts
+          </NavLink>
+          <NavLink to="/calendar" className={navLinkClass}>
+            <CalendarIcon className="h-6 w-6" />
+            Calendar
+            {newCount > 0 && (
+              <span className="ml-auto rounded-full bg-spotify-green px-1.5 text-xs font-bold text-on-accent" aria-label={`${newCount} new`}>
+                {newCount}
+              </span>
+            )}
           </NavLink>
         </nav>
       </div>

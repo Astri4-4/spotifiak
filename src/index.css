@@ -115,8 +115,16 @@ input[type="range"].spotify-slider {
   width: 100%;
   height: 4px;
   border-radius: 9999px;
-  background: rgb(var(--color-fg) / 0.3);
+  /* Filled up to the value (--fill, set by sliderFill()), like Spotify's; green while hovered. */
+  background: linear-gradient(
+    to right,
+    rgb(var(--slider-fill-color, var(--color-fg))) var(--fill, 0%),
+    rgb(var(--color-fg) / 0.3) var(--fill, 0%)
+  );
   outline: none;
+}
+input[type="range"].spotify-slider:hover:not(:disabled) {
+  --slider-fill-color: var(--color-accent);
 }
 input[type="range"].spotify-slider::-webkit-slider-thumb {
   -webkit-appearance: none;

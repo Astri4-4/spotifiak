@@ -4,6 +4,7 @@ import { DevicePicker } from "./DevicePicker";
 import { useJam } from "@/context/JamContext";
 import { coverArtUrl } from "@/api/subsonic";
 import { formatDuration } from "@/lib/format";
+import { sliderFill } from "@/lib/slider";
 import { useNowPlayingSheet } from "@/lib/nowPlayingSheet";
 import { useTrackStar } from "@/lib/trackStar";
 import { openOrCloseRightPanel, shownPanel, useRightPanel, WIDE_QUERY } from "@/lib/rightPanel";
@@ -254,6 +255,7 @@ export function NowPlayingBar() {
               min={0}
               max={total}
               value={Math.min(progress, total)}
+              style={sliderFill(progress, total)}
               disabled={!canControl}
               onChange={(e) => seek(Number(e.target.value))}
             />
@@ -328,6 +330,7 @@ export function NowPlayingBar() {
             max={1}
             step={0.01}
             value={volume}
+            style={sliderFill(volume, 1)}
             onChange={(e) => setVolume(Number(e.target.value))}
           />
         </div>

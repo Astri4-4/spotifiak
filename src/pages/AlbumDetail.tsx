@@ -9,6 +9,7 @@ import { DetailHeader, PlayButton, ShufflePlayButton } from "@/components/Detail
 import { shuffled } from "@/lib/shuffle";
 import { HideDuplicatesButton } from "@/components/HideDuplicatesButton";
 import { SyncAlbumButton } from "@/components/SyncAlbumButton";
+import { LikeCollectionButton } from "@/components/LikeCollectionButton";
 import { useVisibleSongs } from "@/lib/hidden";
 import type { Child } from "@/types/subsonic";
 
@@ -60,6 +61,7 @@ export function AlbumDetail() {
           disabled={songs.length === 0}
           label="Shuffle album"
         />
+        <LikeCollectionButton kind="album" id={album.id} name={album.name} starred={album.starred} />
         <HideDuplicatesButton what="album" songs={() => album.song ?? []} albumIds={[album.id]} />
         <SyncAlbumButton album={album} onSynced={reload} />
       </div>

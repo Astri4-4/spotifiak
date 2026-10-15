@@ -20,6 +20,7 @@ import { byText, matches, useSortChoice, type SortOption } from "@/lib/listSort"
 import { useVisibleAlbums } from "@/lib/hidden";
 import { SMART_PLAYLISTS } from "@/lib/smartPlaylists";
 import { SmartPlaylistArt } from "@/components/SmartPlaylistArt";
+import { useLikedCollections } from "@/lib/collectionStar";
 
 type Tab = "playlists" | "artists" | "albums";
 
@@ -93,6 +94,9 @@ export function Library() {
   const [artists, setArtists] = useState<ArtistID3[] | null>(null);
   const [allAlbums, setAlbums] = useState<AlbumID3[] | null>(null);
   const [query, setQuery] = useState("");
+  // Artists and albums: only the ones you liked.
+  const [likedOnly, setLikedOnly] = useState(false);
+  const liked = useLikedCollections();
   const [playlistSort, setPlaylistSort] = useSortChoice("library.playlists", PLAYLIST_SORTS);
   const [artistSort, setArtistSort] = useSortChoice("library.artists", ARTIST_SORTS);
   const [albumSort, setAlbumSort] = useSortChoice("library.albums", ALBUM_SORTS);
@@ -107,8 +111,14 @@ export function Library() {
   }, [tab, playlists, artists, allAlbums]);
 
   const shownPlaylists = useMemo(() => sortAndFilter(playlists, playlistSort, query, (p) => [p.name, p.comment]), [playlists, playlistSort, query]);
-  const shownArtists = useMemo(() => sortAndFilter(artists, artistSort, query, (a) => [a.name]), [artists, artistSort, query]);
-  const shownAlbums = useMemo(() => sortAndFilter(albums, albumSort, query, (a) => [a.name, a.artist]), [albums, albumSort, query]);
+  const shownArtists = useMemo(
+    () => sortAndFilter(likedOnly ? (artists?.filter((a) => liked.artist.has(a.id)) ?? null) : artists, artistSort, query, (a) => [a.name]),
+    [artists, artistSort, query, likedOnly, liked.artist],
+  );
+  const shownAlbums = useMemo(
+    () => sortAndFilter(likedOnly ? (albums?.filter((a) => liked.album.has(a.id)) ?? null) : albums, albumSort, query, (a) => [a.name, a.artist]),
+    [albums, albumSort, query, likedOnly, liked.album],
+  );
 
   // Liked Songs, Mixes and the smart playlists, before the playlists.
   const specials =
@@ -121,6 +131,8 @@ export function Library() {
           ...SMART_PLAYLISTS.map((p) => ({ to: `/smart/${p.id}`, art: <SmartPlaylistArt playlist={p} />, title: p.name, subtitle: p.description })),
         ].filter((item) => matches(query, item.title))
       : [];
+
+  const filteringLiked = likedOnly && tab !== "playlists";
 
   // Phones get a compact list, larger screens a grid of cards.
   const isPhone = useMediaQuery(PHONE_QUERY);
@@ -157,6 +169,19 @@ export function Library() {
             {t.label}
           </button>
         ))}
+        {tab !== "playlists" && (
+          <button
+            type="button"
+            aria-pressed={likedOnly}
+            onClick={() => setLikedOnly((v) => !v)}
+            className={`flex flex-shrink-0 items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${
+              likedOnly ? "bg-spotify-green text-on-accent" : "bg-spotify-highlight-black text-white hover:bg-white/20"
+            }`}
+          >
+            <HeartIcon filled={likedOnly} className="h-3.5 w-3.5" />
+            Liked
+          </button>
+        )}
       </div>
 
       <div className="mb-4 md:mb-6">
@@ -169,8 +194,12 @@ export function Library() {
         )}
       </div>
 
-      {items === null ? (
+      {items === null || (filteringLiked && !liked.loaded) ? (
         <Loading />
+      ) : filteringLiked && items.length === 0 && !query ? (
+        <p className="pt-8 text-center text-sm text-spotify-gray">
+          No liked {tab} yet. Tap the heart on {tab === "albums" ? "an album" : "an artist"}'s page to find it here.
+        </p>
       ) : isPhone ? (
         <div className="flex flex-col">
           {specials.map((item) => (

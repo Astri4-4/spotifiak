@@ -16,6 +16,7 @@ import { CardGrid } from "@/components/CardGrid";
 import { TrackList } from "@/components/TrackList";
 import { HideDuplicatesButton } from "@/components/HideDuplicatesButton";
 import { FollowEventsButton } from "@/components/FollowEventsButton";
+import { LikeCollectionButton } from "@/components/LikeCollectionButton";
 import { useHidden, useVisibleAlbums, useVisibleSongs, visibleIndices } from "@/lib/hidden";
 import { shuffled } from "@/lib/shuffle";
 import type { AlbumID3, ArtistInfo2, Child } from "@/types/subsonic";
@@ -135,6 +136,7 @@ export function ArtistDetail() {
           disabled={albums.length === 0}
           label="Shuffle artist"
         />
+        <LikeCollectionButton kind="artist" id={artist.id} name={artist.name} starred={artist.starred} />
         <HideDuplicatesButton what="artist" songs={allSongs} albumIds={allAlbums.map((a) => a.id)} />
         <FollowEventsButton artist={artist} />
       </div>

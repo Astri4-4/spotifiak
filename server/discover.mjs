@@ -169,8 +169,8 @@ function cleanDownload(item) {
 
 // ---- admins ---------------------------------------------------------------
 
-/** Whether the caller is a Navidrome admin (who may point Discover at another deemix). */
-async function isAdmin(navidromeUrl, params) {
+/** Whether the caller is a Navidrome admin (who may point Discover at another deemix, or set up the calendar's concerts). */
+export async function isAdmin(navidromeUrl, params) {
   const u = params.get("u");
   const key = `${u}\n${params.get("t")}\n${params.get("s")}`;
   const cached = adminCache.get(key);

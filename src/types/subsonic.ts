@@ -9,6 +9,8 @@ export interface ArtistID3 {
   coverArt?: string;
   albumCount?: number;
   starred?: string;
+  /** From the files' tags (OpenSubsonic; Navidrome sends it). */
+  musicBrainzId?: string;
 }
 
 export interface AlbumID3 {

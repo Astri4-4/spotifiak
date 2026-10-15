@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { getAlbumList2 } from "@/api/subsonic";
 import { getIcsUrl, setEventsCountry, type CalendarEvent } from "@/api/events";
-import { applyEvents, follow, formatEventDate, markSeen, unfollow, useEvents } from "@/lib/events";
+import { applyEvents, follow, formatEventDate, markSeen, unfollow, useEvents, useReleaseLink } from "@/lib/events";
 import { showToast } from "@/lib/songMenu";
 import { Loading } from "@/components/Loading";
 import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, PlusIcon } from "@/components/icons";
@@ -163,6 +163,11 @@ function EventRow({ event }: { event: CalendarEvent }) {
   const day = d ? new Date(y, m - 1, d) : null;
   const where = [event.venue, event.city, event.countryCode].filter(Boolean).join(", ");
   const cancelled = event.status === "cancelled";
+  // A release that's out opens in the app; the rest links to MusicBrainz or Ticketmaster.
+  const inApp = useReleaseLink(event, todayString());
+  const titleClass = `truncate font-semibold hover:underline ${cancelled ? "line-through opacity-60" : ""}`;
+  const title = event.kind === "release" ? event.title : where || event.title;
+  const sideClass = "hidden flex-shrink-0 text-xs font-semibold text-spotify-gray hover:text-white sm:block";
 
   return (
     <div className="flex items-center gap-3 rounded-md p-2 hover:bg-white/10 sm:gap-4">
@@ -189,14 +194,15 @@ function EventRow({ event }: { event: CalendarEvent }) {
       )}
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
-          <a
-            href={event.url}
-            target="_blank"
-            rel="noreferrer"
-            className={`truncate font-semibold hover:underline ${cancelled ? "line-through opacity-60" : ""}`}
-          >
-            {event.kind === "release" ? event.title : where || event.title}
-          </a>
+          {inApp ? (
+            <Link to={inApp} className={titleClass}>
+              {title}
+            </Link>
+          ) : (
+            <a href={event.url} target="_blank" rel="noreferrer" className={titleClass}>
+              {title}
+            </a>
+          )}
           {event.isNew && <span className="flex-shrink-0 rounded-full bg-spotify-green px-2 py-0.5 text-[10px] font-bold uppercase text-on-accent">New</span>}
           {event.status && <span className="flex-shrink-0 text-xs font-semibold capitalize text-yellow-500">{event.status}</span>}
         </span>
@@ -208,14 +214,15 @@ function EventRow({ event }: { event: CalendarEvent }) {
           {event.kind === "release" ? event.type : [event.time, event.title].filter(Boolean).join(" · ")}
         </span>
       </span>
-      <a
-        href={event.url}
-        target="_blank"
-        rel="noreferrer"
-        className="hidden flex-shrink-0 text-xs font-semibold text-spotify-gray hover:text-white sm:block"
-      >
-        {event.kind === "concert" ? "Tickets ↗" : "Details ↗"}
-      </a>
+      {inApp ? (
+        <Link to={inApp} className={sideClass}>
+          {inApp.startsWith("/album/") ? "Open album" : "Find it"}
+        </Link>
+      ) : (
+        <a href={event.url} target="_blank" rel="noreferrer" className={sideClass}>
+          {event.kind === "concert" ? "Tickets ↗" : "Details ↗"}
+        </a>
+      )}
     </div>
   );
 }

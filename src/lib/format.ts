@@ -32,3 +32,17 @@ export function formatTimeAgo(at: number): string {
   const days = Math.floor(hours / 24);
   return days === 1 ? "Yesterday" : `${days} days ago`;
 }
+
+/**
+ * A title reduced for comparing across sources (library, MusicBrainz, Deezer):
+ * "Été (Deluxe Edition)" and "ete" match, and so do "Song (feat. X)" and "Song".
+ */
+export function titleKey(title: string): string {
+  return title
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/\s*[([].*?[)\]]/g, "")
+    .replace(/\s+(feat|ft|featuring)\.?\s.*$/, "")
+    .replace(/[^\p{L}\p{N}]+/gu, "");
+}

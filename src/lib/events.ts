@@ -1,5 +1,8 @@
-import { useEffect, useSyncExternalStore } from "react";
-import { followArtist, getEvents, markEventsSeen, unfollowArtist, type EventsState } from "@/api/events";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { followArtist, getEvents, markEventsSeen, unfollowArtist, type CalendarEvent, type EventsState } from "@/api/events";
+import { getArtist } from "@/api/subsonic";
+import { titleKey } from "./format";
+import type { AlbumID3 } from "@/types/subsonic";
 
 // The event calendar's state, shared by the calendar page, the artist pages'
 // Follow button and the sidebar's "new" count. Kept by the Jam server.
@@ -95,4 +98,51 @@ export function formatEventDate(date: string, withYear = false): string {
     month: "short",
     ...(withYear && { year: "numeric" }),
   });
+}
+
+/** Each library artist's albums, fetched once per page load (several releases share an artist). */
+const artistAlbums = new Map<string, Promise<AlbumID3[]>>();
+
+function albumsOf(artistId: string): Promise<AlbumID3[]> {
+  let albums = artistAlbums.get(artistId);
+  if (!albums) {
+    albums = getArtist(artistId)
+      .then((a) => a.album ?? [])
+      .catch(() => {
+        artistAlbums.delete(artistId);
+        return [];
+      });
+    artistAlbums.set(artistId, albums);
+  }
+  return albums;
+}
+
+/**
+ * Where a release that's out opens in the app: its album, when it's in the
+ * library, or else a Discover search for it (to download it). Null for
+ * concerts and releases still to come, which link out.
+ */
+export function useReleaseLink(event: CalendarEvent, today: string): string | null {
+  const out = event.kind === "release" && event.date.length === 10 && event.date <= today;
+  const [albumId, setAlbumId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!out) return;
+    let cancelled = false;
+    const key = titleKey(event.title);
+    albumsOf(event.artistId).then((albums) => {
+      if (cancelled || !key) return;
+      const keys = albums.map((a) => titleKey(a.name));
+      // Exact title first, then an edition of it ("... Deluxe").
+      const i = keys.indexOf(key) !== -1 ? keys.indexOf(key) : keys.findIndex((k) => k.startsWith(key));
+      setAlbumId(i === -1 ? null : albums[i].id);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [out, event.artistId, event.title]);
+
+  if (!out) return null;
+  if (albumId) return `/album/${albumId}`;
+  return `/search?${new URLSearchParams({ q: `${event.artistName} ${event.title}`, discover: "1" })}`;
 }

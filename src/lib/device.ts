@@ -2,21 +2,23 @@ import { Capacitor } from "@capacitor/core";
 
 // This app instance as a device of the account (see ConnectContext).
 
-const ID_KEY = "spotifion.device.id";
 const NAME_KEY = "spotifion.device.name";
 
-/** Per tab/app session, so two browser tabs are two devices. */
+let deviceId: string | null = null;
+
+/**
+ * Per page load, so two browser tabs are two devices. Not kept in
+ * sessionStorage: browsers copy it into a duplicated tab, and two tabs with
+ * the same id kept knocking each other's connection off. (Generated with
+ * getRandomValues: crypto.randomUUID only exists over https.)
+ */
 export function getDeviceId(): string {
-  try {
-    let id = sessionStorage.getItem(ID_KEY);
-    if (!id) {
-      id = crypto.randomUUID();
-      sessionStorage.setItem(ID_KEY, id);
-    }
-    return id;
-  } catch {
-    return crypto.randomUUID();
+  if (!deviceId) {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    deviceId = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
   }
+  return deviceId;
 }
 
 /** "desktop" | "ios" | "android" | "web": picks the device's icon. */

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { coverArtUrl, getAlbum, type AlbumWithSongsID3 } from "@/api/subsonic";
 import { formatDurationLong } from "@/lib/format";
@@ -8,6 +8,7 @@ import { Loading } from "@/components/Loading";
 import { DetailHeader, PlayButton, ShufflePlayButton } from "@/components/DetailHeader";
 import { shuffled } from "@/lib/shuffle";
 import { HideDuplicatesButton } from "@/components/HideDuplicatesButton";
+import { SyncAlbumButton } from "@/components/SyncAlbumButton";
 import { useVisibleSongs } from "@/lib/hidden";
 import type { Child } from "@/types/subsonic";
 
@@ -23,6 +24,11 @@ export function AlbumDetail() {
     if (!id) return;
     setAlbum(null);
     getAlbum(id).then(setAlbum);
+  }, [id]);
+
+  // After syncing missing songs: show them (without the loading screen).
+  const reload = useCallback(() => {
+    if (id) getAlbum(id).then(setAlbum);
   }, [id]);
 
   if (!album) return <Loading />;
@@ -55,6 +61,7 @@ export function AlbumDetail() {
           label="Shuffle album"
         />
         <HideDuplicatesButton what="album" songs={() => album.song ?? []} albumIds={[album.id]} />
+        <SyncAlbumButton album={album} onSynced={reload} />
       </div>
 
       <div className="mt-4 sm:mt-8">

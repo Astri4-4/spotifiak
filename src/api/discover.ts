@@ -25,6 +25,17 @@ export interface DiscoverAlbum {
 
 export type DiscoverType = "track" | "album";
 
+/** A track of a Deezer album's tracklist. */
+export interface DiscoverAlbumTrack {
+  id: string;
+  title: string;
+  disc: number;
+  track: number;
+  duration: number;
+  /** False for tracks Deezer can't stream (rights), which can't be downloaded either. */
+  available: boolean;
+}
+
 export interface DiscoverDownload {
   uuid: string;
   type: string;
@@ -96,6 +107,10 @@ export async function discoverSearch(q: string, type: "track"): Promise<Discover
 export async function discoverSearch(q: string, type: "album"): Promise<DiscoverAlbum[]>;
 export async function discoverSearch(q: string, type: DiscoverType): Promise<DiscoverTrack[] | DiscoverAlbum[]> {
   return (await call<{ results: DiscoverTrack[] | DiscoverAlbum[] }>("search", { q, type })).results;
+}
+
+export async function getDiscoverAlbumTracks(id: string): Promise<DiscoverAlbumTrack[]> {
+  return (await call<{ tracks: DiscoverAlbumTrack[] }>("album", { id })).tracks;
 }
 
 export async function startDownload(type: DiscoverType, id: string): Promise<DiscoverDownload[]> {

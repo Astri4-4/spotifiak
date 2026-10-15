@@ -6,6 +6,7 @@ import { LyricsView } from "./LyricsView";
 import { useJam } from "@/context/JamContext";
 import { coverArtUrl } from "@/api/subsonic";
 import { formatDuration } from "@/lib/format";
+import { sliderFill } from "@/lib/slider";
 import { useNowPlayingSheet } from "@/lib/nowPlayingSheet";
 import { useTrackStar } from "@/lib/trackStar";
 import { openSongMenu } from "@/lib/songMenu";
@@ -198,6 +199,7 @@ export function NowPlayingSheet() {
             min={0}
             max={total}
             value={Math.min(progress, total)}
+            style={sliderFill(progress, total)}
             disabled={!canControl}
             onChange={(e) => seek(Number(e.target.value))}
           />

@@ -5,11 +5,12 @@ import type { Child } from "@/types/subsonic";
 import { usePlayer } from "@/context/PlayerContext";
 import { isOwnPlaylist, refreshPlaylists } from "@/lib/playlists";
 import { showToast } from "@/lib/songMenu";
+import { shuffled } from "@/lib/shuffle";
 import { Loading } from "@/components/Loading";
 import { ChevronLeftIcon, CloseIcon, HeartIcon, VolumeIcon } from "@/components/icons";
 
-// Sorting a playlist like Tinder: one song at a time, with a bit of it
-// playing. Swipe left and it goes, right and it stays. Nothing changes until
+// Sorting a playlist like Tinder: one song at a time, in random order, with
+// a bit of it playing. Swipe left and it goes, right and it stays. Nothing changes until
 // the end, where the songs swiped left are removed in one go. Where you are
 // is kept on this device, to carry on later.
 
@@ -24,6 +25,9 @@ type Decision = "keep" | "remove";
 interface Progress {
   /** The playlist's songs when sorting started, to check it hasn't changed since. */
   ids: string[];
+  /** The order the songs come in: their positions in the playlist, shuffled. */
+  order: number[];
+  /** One per song sorted so far, in `order`. */
   decisions: Decision[];
 }
 
@@ -31,15 +35,18 @@ const NO_SONGS: Child[] = [];
 
 const progressKey = (id: string) => `spotifion.swipe.${id}`;
 
-function loadProgress(id: string, ids: string[]): Decision[] {
+/** Where you left off (the same random order), or a new random order. */
+function loadProgress(id: string, ids: string[]): Pick<Progress, "order" | "decisions"> {
   try {
     const saved = JSON.parse(localStorage.getItem(progressKey(id)) ?? "null") as Progress | null;
     // Only if it's still the same playlist (songs added or removed meanwhile: start over).
-    if (saved && saved.ids.join(",") === ids.join(",")) return saved.decisions;
+    if (saved && saved.ids.join(",") === ids.join(",") && saved.order?.length === ids.length) {
+      return { order: saved.order, decisions: saved.decisions };
+    }
   } catch {
     // Nothing saved.
   }
-  return [];
+  return { order: shuffled(ids.map((_, i) => i)), decisions: [] };
 }
 
 function saveProgress(id: string, progress: Progress | null) {
@@ -63,6 +70,7 @@ function loadMuted(): boolean {
 export function PlaylistSwipe() {
   const { id } = useParams<{ id: string }>();
   const [playlist, setPlaylist] = useState<PlaylistWithSongs | null | undefined>(undefined);
+  const [order, setOrder] = useState<number[]>([]);
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [finishing, setFinishing] = useState(false);
 
@@ -73,7 +81,9 @@ export function PlaylistSwipe() {
       .then((p) => {
         if (cancelled) return;
         setPlaylist(p);
-        setDecisions(loadProgress(id, (p.entry ?? []).map((s) => s.id)));
+        const progress = loadProgress(id, (p.entry ?? []).map((s) => s.id));
+        setOrder(progress.order);
+        setDecisions(progress.decisions);
       })
       .catch(() => !cancelled && setPlaylist(null));
     return () => {
@@ -88,11 +98,11 @@ export function PlaylistSwipe() {
       setDecisions((prev) => {
         if (prev.length >= songs.length) return prev;
         const next = [...prev, decision];
-        saveProgress(id, { ids: songs.map((s) => s.id), decisions: next });
+        saveProgress(id, { ids: songs.map((s) => s.id), order, decisions: next });
         return next;
       });
     },
-    [id, playlist, songs],
+    [id, playlist, songs, order],
   );
 
   const undo = useCallback(() => {
@@ -100,10 +110,10 @@ export function PlaylistSwipe() {
     setFinishing(false);
     setDecisions((prev) => {
       const next = prev.slice(0, -1);
-      saveProgress(id, { ids: songs.map((s) => s.id), decisions: next });
+      saveProgress(id, { ids: songs.map((s) => s.id), order, decisions: next });
       return next;
     });
-  }, [id, songs]);
+  }, [id, songs, order]);
 
   if (playlist === undefined) return <Loading />;
   if (playlist === null || !id) return <p className="pt-10 text-center text-spotify-gray">This playlist doesn't exist any more.</p>;
@@ -113,14 +123,15 @@ export function PlaylistSwipe() {
 
   const done = decisions.length >= songs.length;
   return done || finishing ? (
-    <Summary playlist={playlist} decisions={decisions} onUndo={undo} onBack={() => setFinishing(false)} done={done} />
+    <Summary playlist={playlist} order={order} decisions={decisions} onUndo={undo} onBack={() => setFinishing(false)} done={done} />
   ) : (
-    <Deck playlist={playlist} index={decisions.length} decisions={decisions} onDecide={decide} onUndo={undo} onFinish={() => setFinishing(true)} />
+    <Deck playlist={playlist} order={order} index={decisions.length} decisions={decisions} onDecide={decide} onUndo={undo} onFinish={() => setFinishing(true)} />
   );
 }
 
 function Deck({
   playlist,
+  order,
   index,
   decisions,
   onDecide,
@@ -128,6 +139,7 @@ function Deck({
   onFinish,
 }: {
   playlist: PlaylistWithSongs;
+  order: number[];
   index: number;
   decisions: Decision[];
   onDecide: (d: Decision) => void;
@@ -135,8 +147,8 @@ function Deck({
   onFinish: () => void;
 }) {
   const songs = playlist.entry ?? [];
-  const song = songs[index];
-  const upcoming = songs[index + 1];
+  const song = songs[order[index]];
+  const upcoming = songs[order[index + 1]];
   const removed = decisions.filter((d) => d === "remove").length;
   const [drag, setDrag] = useState<{ x: number; y: number } | null>(null);
   const [leaving, setLeaving] = useState<Decision | null>(null);
@@ -337,12 +349,14 @@ function Card({ song, className = "" }: { song: Child; className?: string }) {
 /** What's left to do: remove the songs swiped left, in one go. */
 function Summary({
   playlist,
+  order,
   decisions,
   done,
   onUndo,
   onBack,
 }: {
   playlist: PlaylistWithSongs;
+  order: number[];
   decisions: Decision[];
   done: boolean;
   onUndo: () => void;
@@ -351,7 +365,8 @@ function Summary({
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
   const songs = playlist.entry ?? [];
-  const removing = decisions.flatMap((d, i) => (d === "remove" ? [i] : []));
+  // Their positions in the playlist, in its order.
+  const removing = decisions.flatMap((d, k) => (d === "remove" ? [order[k]] : [])).sort((a, b) => a - b);
   const left = songs.length - decisions.length;
 
   async function apply() {

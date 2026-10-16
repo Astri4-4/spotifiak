@@ -16,6 +16,17 @@
 //   POST /jam-api/sessions/:id/actions     { type, ... } - see ACTIONS
 //   GET  /jam-api/healthz                  liveness/readiness (no auth)
 //
+// A Jam can be a karaoke room: a TV shows its lyrics and plays its songs
+// (with the vocals turned down), while everyone's phones stay silent and
+// control it. The TV opens /tv with no Navidrome login: it shows a code, and
+// someone in the Jam enters it ("connectScreen"). The TV then streams through
+// this server, with that person's credentials.
+//
+//   POST /jam-api/screens                  { code, secret } a new TV screen
+//   GET  /jam-api/screens/:code/events?secret        SSE: "screen" { jamId }, then the Jam's "state"
+//   POST /jam-api/screens/:code/actions?secret       { type: "ended", uid } only
+//   GET  /jam-api/screens/:code/rest/:endpoint?secret&...   stream, getCoverArt, getLyricsBySongId
+//
 // It also connects the devices of each account, like Spotify Connect: every
 // open app is a device; the one playing publishes what it plays, and the
 // others show it and can control it or move playback to themselves.
@@ -123,7 +134,12 @@ const authCache = new Map();
  *   version: number,
  *   listeners: Set<Listener>,
  *   idleSince: number | null,
+ *   karaoke: { on: boolean, vocals: number },
+ *   screens: Set<string>,
+ *   screenAuth: { u: string, t: string, s: string } | null,
  * }} Session
+ *   `karaoke.vocals`: how loud the voice stays on the TV, 0 (none) to 1 (as recorded).
+ *   `screens`: codes of the TVs showing it; `screenAuth`: whose account they stream with.
  */
 
 // ---- auth -------------------------------------------------------------
@@ -212,6 +228,8 @@ function publicState(session) {
     positionAt: session.positionAt,
     version: session.version,
     members: members(session),
+    karaoke: session.karaoke,
+    screens: [...session.screens].filter((code) => screens.get(code)?.res),
   };
 }
 
@@ -223,6 +241,10 @@ function broadcast(session) {
   session.version++;
   const payload = { state: publicState(session), now: Date.now() };
   for (const l of session.listeners) send(l.res, "state", payload);
+  for (const code of session.screens) {
+    const screen = screens.get(code);
+    if (screen?.res) send(screen.res, "state", payload);
+  }
 }
 
 const TRACK_FIELDS = {
@@ -417,6 +439,15 @@ const ACTIONS = {
     requireHost(session, username);
     session.guestsCanControl = Boolean(body.value);
   },
+
+  // Karaoke mode: the TV plays (with the voice at `vocals`), phones stay silent.
+  setKaraoke(session, username, body) {
+    requireControl(session, username);
+    if (typeof body.on === "boolean") session.karaoke.on = body.on;
+    if (typeof body.vocals === "number" && Number.isFinite(body.vocals)) {
+      session.karaoke.vocals = Math.min(1, Math.max(0, body.vocals));
+    }
+  },
 };
 
 function endSession(session) {
@@ -424,7 +455,143 @@ function endSession(session) {
     send(l.res, "ended", { reason: "The host ended the Jam." });
     l.res.end();
   }
+  unlinkScreens(session);
   sessions.delete(session.id);
+}
+
+// ---- TV screens (karaoke) ----------------------------------------------------
+
+const MAX_SCREENS = 100;
+/** A screen nobody linked, and not open any more, is forgotten after this. */
+const SCREEN_IDLE_MS = 30 * 60 * 1000;
+/** What a screen may ask Navidrome for, through its Jam's account. */
+const SCREEN_ENDPOINTS = new Set(["stream", "getCoverArt", "getLyricsBySongId"]);
+const SCREEN_PARAMS = ["id", "size", "maxBitRate", "format", "timeOffset"];
+
+/**
+ * @typedef {{ code: string, secret: string, jamId: string | null, res: http.ServerResponse | null, seenAt: number }} Screen
+ */
+/** @type {Map<string, Screen>} */
+const screens = new Map();
+
+function newScreenCode() {
+  for (;;) {
+    const bytes = crypto.randomBytes(6);
+    const code = Array.from(bytes, (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join("");
+    if (!screens.has(code)) return code;
+  }
+}
+
+function screenStatus(screen) {
+  const session = screen.jamId ? sessions.get(screen.jamId) : null;
+  if (screen.res) send(screen.res, "screen", { jamId: session ? session.id : null });
+  if (screen.res && session) send(screen.res, "state", { state: publicState(session), now: Date.now() });
+}
+
+function unlinkScreens(session) {
+  for (const code of session.screens) {
+    const screen = screens.get(code);
+    if (!screen || screen.jamId !== session.id) continue;
+    screen.jamId = null;
+    screenStatus(screen);
+  }
+  session.screens.clear();
+}
+
+/** The screen for `code`, if `secret` is its own. */
+function screenFor(code, secret) {
+  const screen = screens.get(code);
+  if (!screen || typeof secret !== "string" || secret.length !== screen.secret.length) return null;
+  return crypto.timingSafeEqual(Buffer.from(secret), Buffer.from(screen.secret)) ? screen : null;
+}
+
+/** Streams what Navidrome sends for the screen's request, with its Jam's credentials. */
+async function proxyForScreen(req, res, session, endpoint, params) {
+  const query = new URLSearchParams({ ...session.screenAuth, v: "1.16.1", c: "spotifion-tv", f: "json" });
+  for (const p of SCREEN_PARAMS) if (params.has(p)) query.set(p, params.get(p));
+  const headers = {};
+  if (req.headers.range) headers.range = req.headers.range;
+  const controller = new AbortController();
+  req.on("close", () => controller.abort());
+  let upstream;
+  try {
+    upstream = await fetch(`${NAVIDROME_URL}/rest/${endpoint}?${query}`, { headers, signal: controller.signal });
+  } catch {
+    if (!res.headersSent) json(res, 502, { error: "Couldn't reach Navidrome." });
+    return;
+  }
+  const out = { "Cache-Control": "no-store" };
+  for (const h of ["content-type", "content-length", "content-range", "accept-ranges"]) {
+    const v = upstream.headers.get(h);
+    if (v) out[h] = v;
+  }
+  res.writeHead(upstream.status, out);
+  if (!upstream.body) return res.end();
+  try {
+    for await (const chunk of upstream.body) {
+      if (!res.write(chunk)) await new Promise((r) => res.once("drain", r));
+    }
+  } catch {
+    // The TV moved on (seek, next song): the request was aborted.
+  }
+  res.end();
+}
+
+async function handleScreens(req, res, url) {
+  const match = url.pathname.match(/^\/jam-api\/screens(?:\/([A-Z0-9]{6})\/(events|actions|rest\/([A-Za-z0-9]+)))?\/?$/);
+  if (!match) return json(res, 404, { error: "Not found." });
+  const [, code, sub, endpoint] = match;
+
+  if (!code) {
+    if (req.method !== "POST") return json(res, 405, { error: "Method not allowed." });
+    if (screens.size >= MAX_SCREENS) return json(res, 503, { error: "Too many screens right now. Try again later." });
+    const screen = { code: newScreenCode(), secret: crypto.randomBytes(16).toString("hex"), jamId: null, res: null, seenAt: Date.now() };
+    screens.set(screen.code, screen);
+    return json(res, 201, { code: screen.code, secret: screen.secret });
+  }
+
+  const screen = screenFor(code, url.searchParams.get("secret"));
+  if (!screen) return json(res, 404, { error: "This screen has expired." });
+  screen.seenAt = Date.now();
+
+  if (sub === "events") {
+    if (req.method !== "GET") return json(res, 405, { error: "Method not allowed." });
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-store",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+    });
+    res.write("retry: 3000\n\n");
+    screen.res?.end();
+    screen.res = res;
+    screenStatus(screen);
+    const session = screen.jamId ? sessions.get(screen.jamId) : null;
+    if (session) broadcast(session); // Its phones see the TV is on.
+    req.on("close", () => {
+      if (screen.res !== res) return;
+      screen.res = null;
+      screen.seenAt = Date.now();
+      const s = screen.jamId ? sessions.get(screen.jamId) : null;
+      if (s) broadcast(s);
+    });
+    return;
+  }
+
+  const session = screen.jamId ? sessions.get(screen.jamId) : null;
+  if (!session) return json(res, 409, { error: "This screen isn't showing a Jam." });
+
+  if (sub === "actions") {
+    if (req.method !== "POST") return json(res, 405, { error: "Method not allowed." });
+    const body = await readJson(req);
+    if (body.type !== "ended") return json(res, 400, { error: "Unknown action." });
+    if (ACTIONS.ended(session, "", body) !== false) broadcast(session);
+    return json(res, 204);
+  }
+
+  if (req.method !== "GET") return json(res, 405, { error: "Method not allowed." });
+  if (!SCREEN_ENDPOINTS.has(endpoint) || !session.screenAuth) return json(res, 404, { error: "Not found." });
+  return proxyForScreen(req, res, session, endpoint, url.searchParams);
 }
 
 // ---- HTTP ---------------------------------------------------------------
@@ -680,6 +847,9 @@ async function handle(req, res) {
   // Unauthenticated health check for container/Kubernetes probes.
   if (url.pathname === "/jam-api/healthz") return json(res, 200, { ok: true, sessions: sessions.size });
 
+  // TV screens have no Navidrome login: their code and secret are the key.
+  if (url.pathname === "/jam-api/screens" || url.pathname.startsWith("/jam-api/screens/")) return handleScreens(req, res, url);
+
   if (url.pathname === "/jam-api/hidden" || url.pathname.startsWith("/jam-api/hidden/")) {
     const username = await authenticate(url.searchParams);
     if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });
@@ -770,6 +940,9 @@ async function handle(req, res) {
       version: 0,
       listeners: new Set(),
       idleSince: Date.now(),
+      karaoke: { on: false, vocals: 0.15 },
+      screens: new Set(),
+      screenAuth: null,
     };
     sessions.set(session.id, session);
     console.log(`[jam] ${username} started Jam ${session.id}`);
@@ -801,6 +974,32 @@ async function handle(req, res) {
     return json(res, 204);
   }
 
+  // Showing the Jam on a TV: it streams with the account of whoever connected it.
+  if (body.type === "connectScreen" || body.type === "disconnectScreen") {
+    requireControl(session, username);
+    const screen = typeof body.code === "string" ? screens.get(body.code.trim().toUpperCase()) : null;
+    if (!screen) throw new HttpError(404, "No TV shows that code. Check the code on the TV screen.");
+    if (body.type === "connectScreen") {
+      const previous = screen.jamId ? sessions.get(screen.jamId) : null;
+      if (previous && previous !== session) {
+        previous.screens.delete(screen.code);
+        broadcast(previous);
+      }
+      screen.jamId = session.id;
+      session.screens.add(screen.code);
+      session.screenAuth = { u: url.searchParams.get("u"), t: url.searchParams.get("t"), s: url.searchParams.get("s") };
+      // A TV is what karaoke is for.
+      session.karaoke.on = true;
+      console.log(`[jam] ${username} put Jam ${session.id} on TV ${screen.code}`);
+    } else if (screen.jamId === session.id) {
+      screen.jamId = null;
+      session.screens.delete(screen.code);
+    }
+    screenStatus(screen);
+    broadcast(session);
+    return json(res, 204);
+  }
+
   const action = Object.hasOwn(ACTIONS, body.type) ? ACTIONS[body.type] : null;
   if (!action) return json(res, 400, { error: "Unknown action." });
   if (action(session, username, body) !== false) broadcast(session);
@@ -825,9 +1024,19 @@ setInterval(() => {
   }
   for (const session of sessions.values()) {
     for (const l of session.listeners) send(l.res, "ping", { now });
-    if (session.idleSince !== null && now - session.idleSince > IDLE_SESSION_TTL_MS) {
+    const tvOn = [...session.screens].some((code) => screens.get(code)?.res);
+    if (session.idleSince !== null && !tvOn && now - session.idleSince > IDLE_SESSION_TTL_MS) {
       console.log(`[jam] Jam ${session.id} expired (no listeners)`);
+      unlinkScreens(session);
       sessions.delete(session.id);
+    }
+  }
+  for (const screen of screens.values()) {
+    if (screen.res) send(screen.res, "ping", { now });
+    else if (now - screen.seenAt > SCREEN_IDLE_MS) {
+      const session = screen.jamId ? sessions.get(screen.jamId) : null;
+      session?.screens.delete(screen.code);
+      screens.delete(screen.code);
     }
   }
   for (const [key, entry] of authCache) if (entry.expires <= now) authCache.delete(key);

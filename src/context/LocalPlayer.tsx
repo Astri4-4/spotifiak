@@ -234,6 +234,12 @@ export function LocalPlayerProvider({ children }: { children: ReactNode }) {
     if (audioRef.current) audioRef.current.volume = volume;
   }, [volume]);
 
+  // A karaoke Jam plays on its TV: this device follows along silently.
+  const karaokeOn = Boolean(inJam && jam?.karaoke?.on);
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.muted = karaokeOn;
+  }, [karaokeOn]);
+
   // Speed: episodes only, and never in a Jam. A new source resets it, hence sourceKey.
   const effectiveRate = isEpisode(current) && !inJam ? playbackRate : 1;
   useEffect(() => {

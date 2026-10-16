@@ -45,6 +45,10 @@ export interface JamState {
   positionAt: number;
   version: number;
   members: JamMember[];
+  /** Karaoke: a TV plays the songs (the voice at `vocals`, 0 to 1) and phones stay silent. */
+  karaoke: { on: boolean; vocals: number };
+  /** Codes of the TVs showing it right now. */
+  screens: string[];
 }
 
 export interface JamSnapshot {
@@ -66,6 +70,9 @@ export type JamAction =
   | { type: "remove"; uid: string }
   | { type: "move"; uid: string; afterUid: string | null }
   | { type: "setGuestControl"; value: boolean }
+  | { type: "setKaraoke"; on?: boolean; vocals?: number }
+  | { type: "connectScreen"; code: string }
+  | { type: "disconnectScreen"; code: string }
   | { type: "end" };
 
 export class JamError extends Error {

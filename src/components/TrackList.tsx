@@ -4,6 +4,7 @@ import type { Child } from "@/types/subsonic";
 import { coverArtUrl } from "@/api/subsonic";
 import { formatDuration } from "@/lib/format";
 import { useStreamCounts } from "@/lib/streams";
+import { useStepped } from "@/lib/useStepped";
 import { usePlayer } from "@/context/PlayerContext";
 import { openSongMenu } from "@/lib/songMenu";
 import { CheckIcon, HeartIcon, MoreIcon, PauseIcon, PlayIcon, QueueAddIcon } from "./icons";
@@ -60,6 +61,8 @@ export function TrackList({
   const tracksKey = tracks.map((t) => t.id).join(",");
   const plays = useStreamCounts("songs", showPlays ? tracks.map((t) => t.id) : []);
   const playsShown = showPlays && plays !== null;
+  // Long playlists: 50 rows at a time, more as you scroll.
+  const { count: drawn, more, sentinelRef } = useStepped(tracks.length);
   useEffect(clearSelection, [tracksKey, clearSelection]);
 
   const isStarred = (track: Child) => starredIds?.has(track.id) ?? Boolean(track.starred);
@@ -143,7 +146,7 @@ export function TrackList({
         </span>
       </div>
       <div className="mt-2 flex flex-col">
-        {tracks.map((track, index) => {
+        {tracks.slice(0, drawn).map((track, index) => {
           const isCurrent = current?.id === track.id;
           const starred = isStarred(track);
           const isSelected = selected.has(index);
@@ -288,6 +291,7 @@ export function TrackList({
           );
         })}
       </div>
+      {more && <div ref={sentinelRef} aria-hidden className="h-px" />}
       {selecting && (
         <SelectionBar
           tracks={[...selected].sort((a, b) => a - b).map((i) => tracks[i])}

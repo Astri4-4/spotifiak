@@ -22,6 +22,7 @@ import { shuffled } from "@/lib/shuffle";
 import { refreshPlaylists } from "@/lib/playlists";
 import { setStarred } from "@/lib/trackStar";
 import { useDragReorder } from "@/lib/useDragReorder";
+import { useStepped } from "@/lib/useStepped";
 import { HideDuplicatesButton } from "@/components/HideDuplicatesButton";
 import { useHidden, visibleIndices } from "@/lib/hidden";
 import { ListControls } from "@/components/ListControls";
@@ -301,9 +302,10 @@ function EditableSongs({
   onMove: (from: number, to: number) => void;
 }) {
   const { itemProps, handleProps } = useDragReorder(onMove);
+  const { count, more, sentinelRef } = useStepped(songs.length);
   return (
     <div className="flex flex-col">
-      {songs.map((track, index) => (
+      {songs.slice(0, count).map((track, index) => (
         <div
           key={`${index}-${track.id}`}
           {...itemProps(index)}
@@ -332,6 +334,7 @@ function EditableSongs({
           </button>
         </div>
       ))}
+      {more && <div ref={sentinelRef} aria-hidden className="h-px" />}
     </div>
   );
 }

@@ -16,6 +16,7 @@ import { usePlayer } from "@/context/PlayerContext";
 import { openOrCloseRightPanel, setRightPanel, shownPanel, useRightPanel, WIDE_QUERY } from "@/lib/rightPanel";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { useInvitePolling } from "@/lib/invites";
+import { useChatConnection } from "@/lib/chat";
 import { useHiddenLoader } from "@/lib/hidden";
 import { usePodcastsLoader } from "@/lib/podcasts";
 import { useEventsLoader } from "@/lib/events";
@@ -32,6 +33,7 @@ export function Layout() {
   const wide = useMediaQuery(WIDE_QUERY);
   const { username } = useAuth();
   useInvitePolling(username);
+  useChatConnection(username);
   useHiddenLoader(username);
   usePodcastsLoader(username);
   useEventsLoader(username);

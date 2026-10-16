@@ -25,6 +25,7 @@ import { SmartPlaylist } from "@/pages/SmartPlaylist";
 import { Podcasts } from "@/pages/Podcasts";
 import { Podcast } from "@/pages/Podcast";
 import { Calendar } from "@/pages/Calendar";
+import { Chat } from "@/pages/Chat";
 
 export default function App() {
   return (
@@ -54,6 +55,8 @@ export default function App() {
                   <Route path="/podcasts" element={<Podcasts />} />
                   <Route path="/podcast/:id" element={<Podcast />} />
                   <Route path="/calendar" element={<Calendar />} />
+                  <Route path="/chat" element={<Chat />} />
+                  <Route path="/chat/:username" element={<Chat />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/activity" element={<Activity />} />
                 </Route>

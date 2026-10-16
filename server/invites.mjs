@@ -20,6 +20,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { postMessage } from "./chat.mjs";
 
 const DATA_DIR = process.env.JAM_DATA_DIR || "";
 const INVITES_FILE = DATA_DIR ? path.join(DATA_DIR, "invites.json") : "";
@@ -80,6 +81,11 @@ function save() {
       console.error("[invites] could not save:", err.message);
     }
   }, 500);
+}
+
+/** Whether someone has used an app with this server (so they can be invited, or written to). */
+export function isPerson(username) {
+  return people.has(username);
 }
 
 /** Remembers someone who signed in, so others can invite them. */
@@ -199,6 +205,8 @@ async function route(req, res, url, username, { readJson, lookup, navidromeUrl }
   if (unknown) throw new InviteError(400, `${unknown} hasn't used Spotifion yet.`);
 
   const sent = [];
+  // Each invite also lands in the conversation with them, as a card.
+  const card = { kind, code, name: target.name, ...(song && { artist: target.artist, coverArt: target.coverArt }) };
   for (const recipient of to) {
     if (recipient === username || target.members.includes(recipient)) continue;
     // Invited again: the same invite moves back to the top (a song sent by someone else is another one).
@@ -209,6 +217,7 @@ async function route(req, res, url, username, { readJson, lookup, navidromeUrl }
       existing.from = username;
       existing.at = Date.now();
       sent.push(recipient);
+      postMessage(username, recipient, card);
       continue;
     }
     const pending = [...invites.values()].filter((i) => i.to === recipient);
@@ -228,6 +237,7 @@ async function route(req, res, url, username, { readJson, lookup, navidromeUrl }
     };
     invites.set(invite.id, invite);
     sent.push(recipient);
+    postMessage(username, recipient, card);
   }
   save();
   if (sent.length) console.log(`[invites] ${username} ${song ? "sent" : "invited"} ${sent.join(", ")} ${song ? "song" : `to ${kind}`} ${code}`);

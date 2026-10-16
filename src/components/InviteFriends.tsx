@@ -8,10 +8,21 @@ import { CheckIcon } from "./icons";
 const FILTER_FROM = 8;
 
 /**
- * The people of this server, to invite to a Jam or a mix from inside the app:
- * it shows up in their inbox. Those already in it aren't listed.
+ * The people of this server, to invite to a Jam or a mix, or send a song to,
+ * from inside the app: it shows up in their inbox. Those already in it aren't listed.
  */
-export function InviteFriends({ kind, code, members }: { kind: InviteKind; code: string; members: string[] }) {
+export function InviteFriends({
+  kind,
+  code,
+  members = [],
+  listClassName = "max-h-72",
+}: {
+  kind: InviteKind;
+  code: string;
+  members?: string[];
+  /** The list's height limit. */
+  listClassName?: string;
+}) {
   const { sent } = useInvites();
   const [people, setPeople] = useState<string[] | null>(null);
   const [filter, setFilter] = useState("");
@@ -33,12 +44,15 @@ export function InviteFriends({ kind, code, members }: { kind: InviteKind; code:
   if (!others.length) {
     return (
       <p className="text-sm text-spotify-gray">
-        {people.length ? "Everyone on this server is already in." : "No one else has used Spotifion here yet: send them the link."}
+        {people.length
+          ? "Everyone on this server is already in."
+          : `No one else has used Spotifion here yet: send them the link${kind === "song" ? "" : " instead"}.`}
       </p>
     );
   }
 
   const invited = new Set(sent.filter((i) => i.kind === kind && i.code === code).map((i) => i.to));
+  const words = kind === "song" ? { verb: "Send", done: "Sent", to: "Send to" } : { verb: "Invite", done: "Invited", to: "Invite" };
   const query = filter.trim().toLowerCase();
   const shown = query ? others.filter((p) => p.toLowerCase().includes(query)) : others;
 
@@ -65,7 +79,7 @@ export function InviteFriends({ kind, code, members }: { kind: InviteKind; code:
           className="mb-2 w-full rounded-full bg-black/40 px-4 py-2 text-base outline-none placeholder:text-spotify-gray md:text-sm"
         />
       )}
-      <ul className="max-h-72 overflow-y-auto">
+      <ul className={`${listClassName} overflow-y-auto`}>
         {shown.map((username) => {
           const done = invited.has(username);
           return (
@@ -76,14 +90,14 @@ export function InviteFriends({ kind, code, members }: { kind: InviteKind; code:
                 type="button"
                 onClick={() => void send(username)}
                 disabled={busy === username}
-                aria-label={done ? `Invite ${username} again` : `Invite ${username}`}
-                title={done ? "Invited: invite again" : undefined}
+                aria-label={`${words.to} ${username}${done ? " again" : ""}`}
+                title={done ? `${words.done}: ${words.verb.toLowerCase()} again` : undefined}
                 className={`flex flex-shrink-0 items-center gap-1 rounded-full px-4 py-1 text-xs font-bold disabled:opacity-60 ${
                   done ? "text-spotify-gray hover:text-white" : "bg-white text-black hover:scale-[1.02]"
                 }`}
               >
                 {done && <CheckIcon className="h-4 w-4" />}
-                {done ? "Invited" : "Invite"}
+                {done ? words.done : words.verb}
               </button>
             </li>
           );

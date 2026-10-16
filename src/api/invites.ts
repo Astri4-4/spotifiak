@@ -1,18 +1,21 @@
 import { authSearchParams } from "./client";
 import { jamBase } from "@/lib/servers";
 
-// Client for invitations to a Jam or a mix (server/invites.mjs), carried by
-// the Jam server.
+// Client for invitations to a Jam or a mix, and songs sent to someone
+// (server/invites.mjs), carried by the Jam server.
 
-export type InviteKind = "jam" | "mix";
+export type InviteKind = "jam" | "mix" | "song";
 
 export interface Invite {
   id: string;
   kind: InviteKind;
-  /** The Jam's or mix's code. */
+  /** The Jam's or mix's code, or the song's id. */
   code: string;
-  /** The mix's name, or the Jam's host. */
+  /** The mix's name, the Jam's host, or the song's title. */
   name: string;
+  /** A song's artist and cover. */
+  artist?: string;
+  coverArt?: string;
   from: string;
   to: string;
   /** When it was sent (ms since epoch). */

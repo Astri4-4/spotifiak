@@ -14,7 +14,7 @@ import {
   saveCredentials,
   type Credentials,
 } from "@/api/client";
-import { ping } from "@/api/subsonic";
+import { getUsername, ping } from "@/api/subsonic";
 
 interface AuthContextValue {
   isAuthenticated: boolean;
@@ -27,6 +27,12 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+/** The credentials with the username spelled as Navidrome does (as typed if it can't tell). */
+async function withCanonicalName(creds: Credentials): Promise<Credentials> {
+  const username = await getUsername(creds).catch(() => creds.username);
+  return username === creds.username ? creds : { ...creds, username };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [creds, setCreds] = useState<Credentials | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,7 +44,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     ping(stored)
-      .then(() => setCreds(stored))
+      .then(() => withCanonicalName(stored))
+      .then((fixed) => {
+        if (fixed !== stored) saveCredentials(fixed);
+        setCreds(fixed);
+      })
       .catch(() => {
         clearCredentials();
         setCreds(null);
@@ -50,8 +60,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const derived = deriveCredentials(username, password);
     // Validate before persisting anything - throws SubsonicError on bad login.
     await ping(derived);
-    saveCredentials(derived);
-    setCreds(derived);
+    const fixed = await withCanonicalName(derived);
+    saveCredentials(fixed);
+    setCreds(fixed);
   }, []);
 
   const logout = useCallback(() => {

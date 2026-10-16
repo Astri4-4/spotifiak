@@ -2,7 +2,6 @@ import { useEffect, useState, type FormEvent } from "react";
 import { createPlaylist, star, unstar, updatePlaylist } from "@/api/subsonic";
 import type { Child } from "@/types/subsonic";
 import { usePlayer } from "@/context/PlayerContext";
-import { useAuth } from "@/context/AuthContext";
 import { refreshPlaylists, usePlaylists } from "@/lib/playlists";
 import { showToast } from "@/lib/songMenu";
 import { setStarred } from "@/lib/trackStar";
@@ -126,11 +125,9 @@ export function SelectionBar({
 }
 
 function PlaylistPicker({ tracks, onDone, onClose }: { tracks: Child[]; onDone: (toast: string) => void; onClose: () => void }) {
-  const { username } = useAuth();
-  const playlists = usePlaylists();
+  // Only yours are listed: Navidrome only lets the owner add songs to a playlist.
+  const own = usePlaylists();
   const [name, setName] = useState("");
-  // Navidrome only lets the owner add songs to a playlist.
-  const own = playlists?.filter((p) => !p.owner || p.owner === username);
   const ids = tracks.map((t) => t.id);
 
   async function addTo(playlistId: string, playlistName: string) {

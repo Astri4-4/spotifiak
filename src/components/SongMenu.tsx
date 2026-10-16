@@ -10,6 +10,7 @@ import { useTrackStar } from "@/lib/trackStar";
 import { isEpisode, recordProgress, usePodcasts } from "@/lib/podcasts";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, HeartIcon, PlusIcon, QueueAddIcon, QueueIcon, ShareIcon } from "./icons";
+import { InviteFriends } from "./InviteFriends";
 
 /** The song menu and its confirmations, for the whole app (see lib/songMenu.ts). */
 export function SongMenu() {
@@ -41,7 +42,7 @@ function MenuPopup({ request }: { request: SongMenuRequest }) {
   const { track } = request;
   // Touch screens get a sheet from the bottom, the rest a menu at the pointer.
   const isTouch = useMediaQuery("(hover: none)");
-  const [view, setView] = useState<"main" | "playlists">("main");
+  const [view, setView] = useState<"main" | "playlists" | "share">("main");
   const panelRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
 
@@ -95,7 +96,9 @@ function MenuPopup({ request }: { request: SongMenuRequest }) {
         {isEpisode(track) ? (
           <EpisodeItems request={request} large={isTouch} />
         ) : view === "main" ? (
-          <MainItems request={request} onShowPlaylists={() => setView("playlists")} large={isTouch} />
+          <MainItems request={request} onShowPlaylists={() => setView("playlists")} onShowShare={() => setView("share")} large={isTouch} />
+        ) : view === "share" ? (
+          <ShareItems request={request} onBack={() => setView("main")} large={isTouch} />
         ) : (
           <PlaylistItems request={request} onBack={() => setView("main")} large={isTouch} />
         )}
@@ -107,16 +110,17 @@ function MenuPopup({ request }: { request: SongMenuRequest }) {
 function MainItems({
   request,
   onShowPlaylists,
+  onShowShare,
   large,
 }: {
   request: SongMenuRequest;
   onShowPlaylists: () => void;
+  onShowShare: () => void;
   large: boolean;
 }) {
   const { track } = request;
   const { inJam, addNext, enqueue } = usePlayer();
   const own = useTrackStar(track);
-  const { username } = useAuth();
   const navigate = useNavigate();
   const starred = request.starred ?? own.isStarred;
 
@@ -160,16 +164,7 @@ function MainItems({
       >
         {starred ? "Remove from Liked Songs" : "Save to Liked Songs"}
       </Item>
-      <Item
-        large={large}
-        icon={<ShareIcon className="h-4 w-4" />}
-        onClick={() => {
-          closeSongMenu();
-          void copySongLink(track.id, username).then((ok) =>
-            showToast(ok ? "Link copied: send it to someone on this server" : "Couldn't copy the link"),
-          );
-        }}
-      >
+      <Item large={large} icon={<ShareIcon className="h-4 w-4" />} onClick={onShowShare} trailing={<ChevronRightIcon className="h-4 w-4" />}>
         Share
       </Item>
       {request.onSelect && (
@@ -237,6 +232,38 @@ function EpisodeItems({ request, large }: { request: SongMenuRequest; large: boo
           </Item>
         </>
       )}
+    </>
+  );
+}
+
+/** Sending the song to someone on this server (it lands in their inbox), or copying its link. */
+function ShareItems({ request, onBack, large }: { request: SongMenuRequest; onBack: () => void; large: boolean }) {
+  const { track } = request;
+  const { username } = useAuth();
+
+  return (
+    <>
+      <Item large={large} icon={<ChevronLeftIcon className="h-4 w-4" />} onClick={onBack}>
+        Share
+      </Item>
+      <hr className="my-1 border-white/10" />
+      <Item
+        large={large}
+        icon={<ShareIcon className="h-4 w-4" />}
+        onClick={() => {
+          closeSongMenu();
+          void copySongLink(track.id, username).then((ok) =>
+            showToast(ok ? "Link copied: send it to someone on this server" : "Couldn't copy the link"),
+          );
+        }}
+      >
+        Copy link
+      </Item>
+      <hr className="my-1 border-white/10" />
+      <div className="px-2 pb-1 pt-1">
+        <p className={`mb-1 font-semibold ${large ? "text-base" : "text-sm"}`}>Send to</p>
+        <InviteFriends kind="song" code={track.id} listClassName={large ? "max-h-[50vh]" : "max-h-60"} />
+      </div>
     </>
   );
 }

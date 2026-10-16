@@ -1,17 +1,23 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { getSong } from "@/api/subsonic";
+import { usePlayer } from "@/context/PlayerContext";
 import { answerInvite, inviteText, useInvites } from "@/lib/invites";
 import { formatTimeAgo } from "@/lib/format";
+import { showToast } from "@/lib/songMenu";
 import type { Invite } from "@/api/invites";
 import { Avatar } from "./Avatar";
-import { BellIcon, JamIcon, MixIcon } from "./icons";
+import { BellIcon, JamIcon, MixIcon, ShareIcon } from "./icons";
 
-/** The top bar's bell: invites to a Jam or a mix waiting for you. */
+const songPage = (invite: Invite) => `/track/${encodeURIComponent(invite.code)}?from=${encodeURIComponent(invite.from)}`;
+
+/** The top bar's bell: invites to a Jam or a mix, and songs people sent you. */
 export function InviteInbox() {
   const { received } = useInvites();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const { playQueue, enqueue, inJam } = usePlayer();
 
   useEffect(() => {
     if (!open) return;
@@ -28,11 +34,33 @@ export function InviteInbox() {
   function accept(invite: Invite) {
     answerInvite(invite.id);
     setOpen(false);
+    if (invite.kind === "song") return void play(invite);
     // The Jam's and the mix's own pages ask to confirm: joining a Jam starts its music.
     navigate(invite.kind === "jam" ? `/jam/${invite.code}` : `/mix/${invite.code}`);
   }
 
-  const label = received.length ? `Invites (${received.length} new)` : "Invites";
+  /** A song sent to you: plays it (in a Jam, adds it to the queue). */
+  async function play(invite: Invite) {
+    try {
+      const song = await getSong(invite.code);
+      if (inJam) {
+        enqueue([song]);
+        showToast("Added to the Jam");
+      } else {
+        playQueue([song]);
+      }
+    } catch {
+      showToast("This song isn't on the server any more");
+    }
+  }
+
+  function openSong(invite: Invite) {
+    answerInvite(invite.id);
+    setOpen(false);
+    navigate(songPage(invite));
+  }
+
+  const label = received.length ? `Inbox (${received.length} new)` : "Inbox";
   return (
     <div ref={ref} className="relative flex-shrink-0">
       <button
@@ -54,10 +82,10 @@ export function InviteInbox() {
         // Phones: across the screen under the top bar (whose backdrop blur makes it the
         // box "fixed" is placed in), since the bell isn't at the edge. Wider: under the bell.
         <div className="fixed inset-x-4 top-full z-30 mt-1 rounded-lg bg-spotify-highlight-black p-2 shadow-2xl md:absolute md:inset-x-auto md:right-0 md:mt-2 md:w-[22rem]">
-          <h2 className="px-2 pb-1 pt-1 font-bold">Invites</h2>
+          <h2 className="px-2 pb-1 pt-1 font-bold">Inbox</h2>
           {received.length === 0 ? (
             <p className="px-2 pb-2 text-sm text-spotify-gray">
-              Nothing for now. When someone invites you to their Jam or a mix, it shows up here.
+              Nothing for now. When someone invites you to their Jam or a mix, or sends you a song, it shows up here.
             </p>
           ) : (
             <ul className="max-h-[60vh] overflow-y-auto">
@@ -66,11 +94,23 @@ export function InviteInbox() {
                   <span className="relative flex-shrink-0">
                     <Avatar username={invite.from} className="h-10 w-10 text-sm" />
                     <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-spotify-green text-on-accent">
-                      {invite.kind === "jam" ? <JamIcon className="h-3 w-3" /> : <MixIcon className="h-3 w-3" />}
+                      {invite.kind === "jam" ? (
+                        <JamIcon className="h-3 w-3" />
+                      ) : invite.kind === "mix" ? (
+                        <MixIcon className="h-3 w-3" />
+                      ) : (
+                        <ShareIcon className="h-3 w-3" />
+                      )}
                     </span>
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-sm">{inviteText(invite)}</span>
+                    {invite.kind === "song" ? (
+                      <button type="button" onClick={() => openSong(invite)} className="block text-left text-sm hover:underline">
+                        {inviteText(invite)}
+                      </button>
+                    ) : (
+                      <span className="block text-sm">{inviteText(invite)}</span>
+                    )}
                     <span className="block text-xs text-spotify-gray">{formatTimeAgo(invite.at)}</span>
                     <span className="mt-2 flex gap-2">
                       <button
@@ -78,14 +118,14 @@ export function InviteInbox() {
                         onClick={() => accept(invite)}
                         className="rounded-full bg-white px-4 py-1 text-xs font-bold text-black hover:scale-[1.02]"
                       >
-                        {invite.kind === "jam" ? "Join" : "Open"}
+                        {invite.kind === "jam" ? "Join" : invite.kind === "song" ? "Play" : "Open"}
                       </button>
                       <button
                         type="button"
                         onClick={() => answerInvite(invite.id)}
                         className="rounded-full border border-spotify-gray-subdued px-4 py-1 text-xs font-bold hover:border-white"
                       >
-                        Decline
+                        {invite.kind === "song" ? "Dismiss" : "Decline"}
                       </button>
                     </span>
                   </span>

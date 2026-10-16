@@ -689,7 +689,7 @@ async function handle(req, res) {
   if (url.pathname === "/jam-api/invites" || url.pathname.startsWith("/jam-api/invites/")) {
     const username = await authenticate(url.searchParams);
     if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });
-    return handleInvites(req, res, url, username, { readJson, lookup: inviteTarget });
+    return handleInvites(req, res, url, username, { readJson, lookup: inviteTarget, navidromeUrl: NAVIDROME_URL });
   }
 
   if (url.pathname === "/jam-api/podcasts" || url.pathname.startsWith("/jam-api/podcasts/")) {

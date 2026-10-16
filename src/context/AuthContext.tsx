@@ -14,7 +14,8 @@ import {
   saveCredentials,
   type Credentials,
 } from "@/api/client";
-import { getUsername, ping } from "@/api/subsonic";
+import { ping } from "@/api/subsonic";
+import { nameKey } from "@/lib/names";
 
 interface AuthContextValue {
   isAuthenticated: boolean;
@@ -27,9 +28,13 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-/** The credentials with the username spelled as Navidrome does (as typed if it can't tell). */
-async function withCanonicalName(creds: Credentials): Promise<Credentials> {
-  const username = await getUsername(creds).catch(() => creds.username);
+/**
+ * The credentials with the username in lowercase: Navidrome's logins take any
+ * case ("Youf" or "youf"), but the app compares names, and the Jam server
+ * files everything under the lowercase one.
+ */
+function withCanonicalName(creds: Credentials): Credentials {
+  const username = nameKey(creds.username);
   return username === creds.username ? creds : { ...creds, username };
 }
 
@@ -60,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const derived = deriveCredentials(username, password);
     // Validate before persisting anything - throws SubsonicError on bad login.
     await ping(derived);
-    const fixed = await withCanonicalName(derived);
+    const fixed = withCanonicalName(derived);
     saveCredentials(fixed);
     setCreds(fixed);
   }, []);

@@ -82,6 +82,7 @@ import { handleMixes, mixForInvite } from "./mixes.mjs";
 import { handleAvatars } from "./avatars.mjs";
 import { handleInvites, isPerson, rememberPerson } from "./invites.mjs";
 import { handleChat } from "./chat.mjs";
+import { nameKey } from "./names.mjs";
 import { handlePodcasts } from "./podcasts.mjs";
 import { handleEvents, handleEventsIcs } from "./events.mjs";
 
@@ -127,7 +128,11 @@ const authCache = new Map();
 
 // ---- auth -------------------------------------------------------------
 
-/** Resolves to the Navidrome username if u/t/s are valid credentials, else null. */
+/**
+ * Resolves to the Navidrome username if u/t/s are valid credentials, else
+ * null. In lowercase: Navidrome's logins take any case ("Youf" or "youf"),
+ * and everything saved here is filed under one spelling.
+ */
 async function authenticate(params) {
   const u = params.get("u");
   const t = params.get("t");
@@ -147,9 +152,10 @@ async function authenticate(params) {
     console.error(`[jam] could not reach Navidrome at ${NAVIDROME_URL}:`, err.message);
     return null;
   }
-  authCache.set(key, { username: u, expires: Date.now() + AUTH_TTL_MS });
-  rememberPerson(u);
-  return u;
+  const username = nameKey(u);
+  authCache.set(key, { username, expires: Date.now() + AUTH_TTL_MS });
+  rememberPerson(username);
+  return username;
 }
 
 // ---- session state ------------------------------------------------------

@@ -21,6 +21,7 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { postMessage } from "./chat.mjs";
+import { nameKey } from "./names.mjs";
 
 const DATA_DIR = process.env.JAM_DATA_DIR || "";
 const INVITES_FILE = DATA_DIR ? path.join(DATA_DIR, "invites.json") : "";
@@ -55,9 +56,9 @@ function load() {
       const saved = JSON.parse(fs.readFileSync(INVITES_FILE, "utf8"));
       return {
         /** @type {Map<string, Invite>} */
-        invites: new Map((saved.invites ?? []).map((i) => [i.id, i])),
+        invites: new Map((saved.invites ?? []).map((i) => [i.id, { ...i, from: nameKey(i.from), to: nameKey(i.to) }])),
         /** @type {Set<string>} */
-        people: new Set(saved.people ?? []),
+        people: new Set((saved.people ?? []).map(nameKey)),
       };
     }
   } catch {
@@ -85,7 +86,7 @@ function save() {
 
 /** Whether someone has used an app with this server (so they can be invited, or written to). */
 export function isPerson(username) {
-  return people.has(username);
+  return people.has(nameKey(username));
 }
 
 /** Remembers someone who signed in, so others can invite them. */
@@ -198,7 +199,7 @@ async function route(req, res, url, username, { readJson, lookup, navidromeUrl }
     throw new InviteError(403, kind === "jam" ? "Join the Jam to invite people." : "Join the mix to invite people.");
   }
 
-  const to = [...new Set(Array.isArray(body.to) ? body.to.filter((u) => typeof u === "string") : [])];
+  const to = [...new Set(Array.isArray(body.to) ? body.to.filter((u) => typeof u === "string").map(nameKey) : [])];
   if (!to.length) throw new InviteError(400, song ? "Send it to whom?" : "Invite whom?");
   if (to.length > MAX_RECIPIENTS) throw new InviteError(400, `You can invite up to ${MAX_RECIPIENTS} people at once.`);
   const unknown = to.find((u) => !people.has(u));

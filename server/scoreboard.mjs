@@ -14,6 +14,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { byName } from "./names.mjs";
 
 const DATA_DIR = process.env.JAM_DATA_DIR || "";
 const DATA_FILE = DATA_DIR ? path.join(DATA_DIR, "scoreboard.json") : "";
@@ -47,7 +48,21 @@ function load() {
   if (!DATA_FILE) return;
   try {
     const saved = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
-    if (saved?.weekStart === week.weekStart && saved.users && typeof saved.users === "object") week = saved;
+    if (saved?.weekStart === week.weekStart && saved.users && typeof saved.users === "object") {
+      // The same person under two spellings: their week's listening added up.
+      saved.users = Object.fromEntries(
+        byName(Object.entries(saved.users), (kept, other) => {
+          const artists = { ...other.artists };
+          for (const [k, a] of Object.entries(kept.artists)) {
+            const b = artists[k];
+            artists[k] = b ? { ...a, seconds: a.seconds + b.seconds, plays: a.plays + b.plays } : a;
+          }
+          const last = !kept.last || (other.last && other.last.at > kept.last.at) ? other.last : kept.last;
+          return { seconds: kept.seconds + other.seconds, plays: kept.plays + other.plays, artists, last };
+        }),
+      );
+      week = saved;
+    }
   } catch {
     // Nothing saved yet, or unreadable: start the week empty.
   }

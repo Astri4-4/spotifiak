@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { getNowPlaying } from "@/api/subsonic";
 import { useAuth } from "@/context/AuthContext";
 import type { NowPlayingEntry } from "@/types/subsonic";
+import { nameKey, sameUser } from "./names";
 
 const POLL_MS = 30_000;
 
@@ -24,9 +25,9 @@ export function useFriendActivity(): NowPlayingEntry[] | null {
         try {
           const latest = new Map<string, NowPlayingEntry>();
           for (const entry of await getNowPlaying()) {
-            if (entry.username === username) continue;
-            const seen = latest.get(entry.username);
-            if (!seen || entry.minutesAgo < seen.minutesAgo) latest.set(entry.username, entry);
+            if (sameUser(entry.username, username)) continue;
+            const seen = latest.get(nameKey(entry.username));
+            if (!seen || entry.minutesAgo < seen.minutesAgo) latest.set(nameKey(entry.username), entry);
           }
           if (!cancelled) setEntries([...latest.values()].sort((a, b) => a.minutesAgo - b.minutesAgo));
         } catch {

@@ -13,6 +13,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { nameKey } from "./names.mjs";
 
 const DATA_DIR = process.env.JAM_DATA_DIR || "";
 const CHAT_FILE = DATA_DIR ? path.join(DATA_DIR, "chat.json") : "";
@@ -49,7 +50,21 @@ function load() {
   try {
     if (CHAT_FILE) {
       const saved = JSON.parse(fs.readFileSync(CHAT_FILE, "utf8"));
-      return new Map((saved.conversations ?? []).map((c) => [key(c.users[0], c.users[1]), c]));
+      // Names in lowercase; one conversation saved under two spellings of a name becomes one.
+      const map = new Map();
+      for (const c of saved.conversations ?? []) {
+        const users = /** @type {[string, string]} */ (c.users.map(nameKey).sort());
+        const messages = c.messages.map((m) => ({ ...m, from: nameKey(m.from) }));
+        const read = Object.fromEntries(Object.entries(c.read ?? {}).map(([u, at]) => [nameKey(u), at]));
+        const k = key(users[0], users[1]);
+        const seen = map.get(k);
+        if (!seen) map.set(k, { users, messages, read });
+        else {
+          seen.messages = [...seen.messages, ...messages].sort((a, b) => a.at - b.at);
+          for (const [u, at] of Object.entries(read)) seen.read[u] = Math.max(seen.read[u] ?? 0, at);
+        }
+      }
+      return map;
     }
   } catch {
     // None saved yet.
@@ -176,7 +191,7 @@ export async function handleChat(req, res, url, username, { readJson, isPerson }
       return openStream(req, res, username);
     }
 
-    const other = first;
+    const other = nameKey(first);
     if (!USERNAME.test(other) || other === username) throw new ChatError(404, "No such conversation.");
 
     if (second === "read") {

@@ -14,6 +14,9 @@ const SEARCH_CONCURRENCY = 6;
 const MAX_DURATION_DIFF = 2; // seconds
 /** Albums looked at to see whether all their songs are hidden. */
 const MAX_ALBUMS_CHECKED = 100;
+/** Loading your hidden songs failed: tries again after this, then twice as long each time, up to the max. */
+const RETRY_FIRST_MS = 3_000;
+const RETRY_MAX_MS = 60_000;
 
 let state: Hidden = { songs: {}, albums: [] };
 let loadedFor: string | null = null;
@@ -24,16 +27,43 @@ function set(next: Hidden) {
   for (const l of listeners) l();
 }
 
-/** Loads your hidden duplicates once signed in. Mount once. */
+/**
+ * Loads your hidden duplicates once signed in, and again when you come back
+ * to the app (another device may have hidden more). Mount once.
+ */
 export function useHiddenLoader(username: string | null) {
   useEffect(() => {
-    if (username === loadedFor) return;
-    loadedFor = username;
-    set({ songs: {}, albums: [] });
+    if (username !== loadedFor) {
+      loadedFor = username;
+      set({ songs: {}, albums: [] });
+    }
     if (!username) return;
-    getHidden()
-      .then((h) => loadedFor === username && set(h))
-      .catch(() => void 0); // No Jam server, or it's down: everything shows.
+    let cancelled = false;
+    let timer: number | undefined;
+    let delay = RETRY_FIRST_MS;
+
+    async function load() {
+      window.clearTimeout(timer);
+      try {
+        const h = await getHidden();
+        if (!cancelled && loadedFor === username) set(h);
+        delay = RETRY_FIRST_MS;
+      } catch {
+        // The Jam server is restarting, or unreachable: try again, waiting longer each time.
+        if (cancelled) return;
+        timer = window.setTimeout(load, delay);
+        delay = Math.min(delay * 2, RETRY_MAX_MS);
+      }
+    }
+
+    void load();
+    const onVisible = () => document.visibilityState === "visible" && void load();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [username]);
 }
 

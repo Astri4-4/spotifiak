@@ -8,6 +8,7 @@ import { usePlayer } from "@/context/PlayerContext";
 import { loadOlder, messagePreview, send, useChat, useOpenConversation } from "@/lib/chat";
 import { answerInvite, useInvites } from "@/lib/invites";
 import { formatTimeAgo } from "@/lib/format";
+import { nameKey } from "@/lib/names";
 import { showToast } from "@/lib/songMenu";
 import { Avatar } from "@/components/Avatar";
 import { Loading } from "@/components/Loading";
@@ -15,7 +16,8 @@ import { ChevronLeftIcon, JamIcon, MixIcon, PlayIcon, PlusIcon, SendIcon } from 
 
 /** Conversations with other people: /chat, and one of them: /chat/:username */
 export function Chat() {
-  const { username: other } = useParams<{ username: string }>();
+  const param = useParams<{ username: string }>().username;
+  const other = param ? nameKey(param) : undefined;
 
   return (
     <div className="pt-4 md:grid md:grid-cols-[17rem_minmax(0,1fr)] md:gap-6 md:pt-6">

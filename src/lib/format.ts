@@ -46,3 +46,10 @@ export function titleKey(title: string): string {
     .replace(/\s+(feat|ft|featuring)\.?\s.*$/, "")
     .replace(/[^\p{L}\p{N}]+/gu, "");
 }
+
+const playsFormat = new Intl.NumberFormat();
+
+/** "1 play", "12,345 plays". */
+export function formatPlays(n: number): string {
+  return `${playsFormat.format(n)} ${n === 1 ? "play" : "plays"}`;
+}

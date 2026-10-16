@@ -19,6 +19,8 @@ import { FollowEventsButton } from "@/components/FollowEventsButton";
 import { LikeCollectionButton } from "@/components/LikeCollectionButton";
 import { useHidden, useVisibleAlbums, useVisibleSongs, visibleIndices } from "@/lib/hidden";
 import { shuffled } from "@/lib/shuffle";
+import { formatPlays } from "@/lib/format";
+import { useStreamCount } from "@/lib/streams";
 import type { AlbumID3, ArtistInfo2, Child } from "@/types/subsonic";
 
 const NO_ALBUMS: AlbumID3[] = [];
@@ -52,6 +54,7 @@ export function ArtistDetail() {
   // Albums made only of hidden duplicates (singles...) aren't shown.
   const albums = useVisibleAlbums(allAlbums);
   const popularSongs = useVisibleSongs(popular?.songs ?? NO_SONGS);
+  const plays = useStreamCount("artists", id);
 
   useEffect(() => {
     if (!id) return;
@@ -127,7 +130,7 @@ export function ArtistDetail() {
         kind="Artist"
         title={artist.name}
         image={<img src={coverArtUrl(artist.coverArt, 400)} alt="" className="h-full w-full rounded-full object-cover" />}
-        meta={`${albums.length} album${albums.length === 1 ? "" : "s"}`}
+        meta={`${albums.length} album${albums.length === 1 ? "" : "s"}${plays !== null ? ` · ${formatPlays(plays)}` : ""}`}
       />
       <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3 sm:mt-6">
         <PlayButton onClick={() => void visibleSongs().then((s) => playQueue(s))} disabled={albums.length === 0} label="Play all" />
@@ -149,6 +152,7 @@ export function ArtistDetail() {
             queue={popularSongs}
             showCover
             showAlbum
+            showPlays
             showArtist={false}
           />
           {popularSongs.length > POPULAR_SHOWN && (

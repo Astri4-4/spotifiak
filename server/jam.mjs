@@ -38,6 +38,11 @@
 //
 //   /jam-api/scoreboard/...
 //
+// And it counts how many times songs, albums and artists were played by
+// everyone (a Jam's song once) - see streams.mjs.
+//
+//   /jam-api/streams/...
+//
 // And it keeps Mixes, playlists blended from several people's top songs -
 // see mixes.mjs.
 //
@@ -66,6 +71,7 @@ import http from "node:http";
 import crypto from "node:crypto";
 import { handleDiscover } from "./discover.mjs";
 import { handleScoreboard } from "./scoreboard.mjs";
+import { handleStreams } from "./streams.mjs";
 import { handleHidden } from "./hidden.mjs";
 import { handleMixes, mixForInvite } from "./mixes.mjs";
 import { handleAvatars } from "./avatars.mjs";
@@ -639,6 +645,13 @@ function inviteTarget(kind, code) {
   return { name: session.host, members: [session.host, ...members(session).map((m) => m.username)] };
 }
 
+/** Whether queue item `uid` is in Jam `jamId`, and `username` is listening to it. */
+function isJamSong(jamId, uid, username) {
+  const session = sessions.get(jamId);
+  if (!session || !session.queue.some((item) => item.uid === uid)) return false;
+  return session.host === username || [...session.listeners].some((l) => l.username === username);
+}
+
 async function handle(req, res) {
   const url = new URL(req.url, "http://jam.local");
   // The mobile app calls this server cross-origin. Any origin is fine: every
@@ -689,6 +702,12 @@ async function handle(req, res) {
     const username = await authenticate(url.searchParams);
     if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });
     return handleScoreboard(req, res, url, username, { navidromeUrl: NAVIDROME_URL, readJson });
+  }
+
+  if (url.pathname === "/jam-api/streams" || url.pathname.startsWith("/jam-api/streams/")) {
+    const username = await authenticate(url.searchParams);
+    if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });
+    return handleStreams(req, res, url, username, { navidromeUrl: NAVIDROME_URL, readJson, isJamSong });
   }
 
   // Calendar apps fetch this one without a Navidrome login: its token is the key.

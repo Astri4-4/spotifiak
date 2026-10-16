@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { coverArtUrl, getAlbum, type AlbumWithSongsID3 } from "@/api/subsonic";
-import { formatDurationLong } from "@/lib/format";
+import { formatDurationLong, formatPlays } from "@/lib/format";
+import { useStreamCount } from "@/lib/streams";
 import { usePlayer } from "@/context/PlayerContext";
 import { TrackList } from "@/components/TrackList";
 import { Loading } from "@/components/Loading";
@@ -20,6 +21,7 @@ export function AlbumDetail() {
   const [album, setAlbum] = useState<AlbumWithSongsID3 | null>(null);
   const { playQueue } = usePlayer();
   const songs = useVisibleSongs(album?.song ?? NO_SONGS);
+  const plays = useStreamCount("albums", id);
 
   useEffect(() => {
     if (!id) return;
@@ -51,6 +53,7 @@ export function AlbumDetail() {
             )}
             {album.year ? ` · ${album.year}` : ""} · {songs.length} songs
             {album.duration ? `, ${formatDurationLong(album.duration)}` : ""}
+            {plays !== null && ` · ${formatPlays(plays)}`}
           </>
         }
       />
@@ -67,7 +70,7 @@ export function AlbumDetail() {
       </div>
 
       <div className="mt-4 sm:mt-8">
-        <TrackList tracks={songs} showArtist={false} />
+        <TrackList tracks={songs} showArtist={false} showPlays />
       </div>
     </div>
   );

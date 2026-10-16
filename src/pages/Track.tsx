@@ -5,7 +5,8 @@ import type { Child } from "@/types/subsonic";
 import { usePlayer } from "@/context/PlayerContext";
 import { useTrackStar } from "@/lib/trackStar";
 import { openSongMenu } from "@/lib/songMenu";
-import { formatDuration } from "@/lib/format";
+import { formatDuration, formatPlays } from "@/lib/format";
+import { useStreamCount } from "@/lib/streams";
 import { DetailHeader, PlayButton } from "@/components/DetailHeader";
 import { Loading } from "@/components/Loading";
 import { HeartIcon, MoreIcon } from "@/components/icons";
@@ -18,6 +19,7 @@ export function Track() {
   const [song, setSong] = useState<Child | null | undefined>(undefined);
   const { playQueue, current, isPlaying, togglePlay } = usePlayer();
   const { isStarred, toggle } = useTrackStar(song ?? null);
+  const plays = useStreamCount("songs", id);
 
   useEffect(() => {
     if (!id) return;
@@ -75,6 +77,7 @@ export function Track() {
             )}
             {song.year ? ` · ${song.year}` : ""}
             {song.duration ? ` · ${formatDuration(song.duration)}` : ""}
+            {plays !== null && ` · ${formatPlays(plays)}`}
           </>
         }
       />

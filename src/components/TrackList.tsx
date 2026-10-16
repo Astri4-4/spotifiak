@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import type { Child } from "@/types/subsonic";
 import { coverArtUrl } from "@/api/subsonic";
 import { formatDuration } from "@/lib/format";
+import { useStreamCounts } from "@/lib/streams";
 import { usePlayer } from "@/context/PlayerContext";
 import { openSongMenu } from "@/lib/songMenu";
 import { CheckIcon, HeartIcon, MoreIcon, PauseIcon, PlayIcon, QueueAddIcon } from "./icons";
@@ -19,6 +20,8 @@ interface TrackListProps {
   showArtist?: boolean;
   showAlbum?: boolean;
   showCover?: boolean;
+  /** How many times everyone played each song (larger screens). */
+  showPlays?: boolean;
   starredIds?: Set<string>;
   onToggleStar?: (track: Child) => void;
   /** Offers "Remove from this playlist" in the song menu. */
@@ -35,6 +38,7 @@ export function TrackList({
   showArtist = true,
   showAlbum = false,
   showCover = false,
+  showPlays = false,
   starredIds,
   onToggleStar,
   onRemoveFromPlaylist,
@@ -54,6 +58,8 @@ export function TrackList({
   }, []);
   // Another list (sorted, searched, reloaded): start over.
   const tracksKey = tracks.map((t) => t.id).join(",");
+  const plays = useStreamCounts("songs", showPlays ? tracks.map((t) => t.id) : []);
+  const playsShown = showPlays && plays !== null;
   useEffect(clearSelection, [tracksKey, clearSelection]);
 
   const isStarred = (track: Child) => starredIds?.has(track.id) ?? Boolean(track.starred);
@@ -131,7 +137,10 @@ export function TrackList({
         <span className="text-right">#</span>
         <span>Title</span>
         <span className="hidden lg:block">{showAlbum ? "Album" : ""}</span>
-        <span className="text-right">Duration</span>
+        <span className="flex justify-end gap-3">
+          {playsShown && <span className="w-24 text-right">Plays</span>}
+          <span>Duration</span>
+        </span>
       </div>
       <div className="mt-2 flex flex-col">
         {tracks.map((track, index) => {
@@ -256,6 +265,9 @@ export function TrackList({
                   >
                     <HeartIcon filled={starred} className="h-4 w-4" />
                   </button>
+                )}
+                {playsShown && (
+                  <span className="hidden w-24 text-right tabular-nums md:inline">{new Intl.NumberFormat().format(plays[track.id] ?? 0)}</span>
                 )}
                 <span className="hidden tabular-nums sm:inline">{formatDuration(track.duration)}</span>
                 <button

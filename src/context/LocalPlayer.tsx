@@ -12,6 +12,7 @@ import type { ActionHandler, MediaSessionAction } from "@capgo/capacitor-media-s
 import { MediaSession } from "@/lib/mediaSession";
 import { coverArtUrl, scrobble, streamUrl } from "@/api/subsonic";
 import { reportPlay } from "@/api/scoreboard";
+import { reportStream } from "@/api/streams";
 import { toJamTrack } from "@/api/jam";
 import { getShareListening } from "@/lib/sharing";
 import { getEpisodeProgress, isEpisode, PLAYBACK_RATES, recordProgress, SKIP_BACK, SKIP_FORWARD } from "@/lib/podcasts";
@@ -209,7 +210,8 @@ export function LocalPlayerProvider({ children }: { children: ReactNode }) {
       else tryPlay();
     }
     // Best-effort "now playing", which other users see in Friend activity (songs only: Navidrome doesn't know episodes).
-    if (!episode && getShareListening()) scrobble(current.id, false).catch(() => void 0);
+    // Not for a Jam's songs: they're the group's, not yours.
+    if (!episode && !inJam && getShareListening()) scrobble(current.id, false).catch(() => void 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sourceKey]);
 
@@ -595,8 +597,15 @@ export function LocalPlayerProvider({ children }: { children: ReactNode }) {
             if (!audio.paused && Date.now() - episodeSavedAtRef.current > EPISODE_SAVE_MS) saveEpisodePosition();
           } else if (!scrobbledRef.current && current?.duration && t > current.duration * 0.5) {
             scrobbledRef.current = true;
-            scrobble(current.id, true).catch(() => void 0);
-            if (getShareListening()) reportPlay(current.id).catch(() => void 0);
+            if (inJam) {
+              // A Jam's song counts once for everyone, and stays out of your own plays (your
+              // history, the scoreboard, your top songs for mixes).
+              if (jamId && jamItem) reportStream(current.id, { id: jamId, uid: jamItem.uid }).catch(() => void 0);
+            } else {
+              scrobble(current.id, true).catch(() => void 0);
+              reportStream(current.id).catch(() => void 0);
+              if (getShareListening()) reportPlay(current.id).catch(() => void 0);
+            }
           }
           // Periodically pull this device back onto the Jam's shared playhead.
           if (inJam && jam?.playing && !audio.seeking && Date.now() - lastDriftCheckRef.current > JAM_DRIFT_CHECK_MS) {

@@ -27,7 +27,7 @@ import { Podcast } from "@/pages/Podcast";
 import { Calendar } from "@/pages/Calendar";
 import { Chat } from "@/pages/Chat";
 import { Screen } from "@/pages/Screen";
-import { PlaylistSwipe } from "@/pages/PlaylistSwipe";
+import { LikedSwipe, PlaylistSwipe } from "@/pages/SwipeSort";
 
 export default function App() {
   return (
@@ -45,6 +45,7 @@ export default function App() {
                   <Route path="/search" element={<Search />} />
                   <Route path="/library" element={<Library />} />
                   <Route path="/liked" element={<LikedSongs />} />
+                  <Route path="/liked/swipe" element={<LikedSwipe />} />
                   <Route path="/album/:id" element={<AlbumDetail />} />
                   <Route path="/artist/:id" element={<ArtistDetail />} />
                   <Route path="/playlist/:id" element={<PlaylistDetail />} />

@@ -1,19 +1,23 @@
-import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { coverArtUrl, getPlaylist, setPlaylistSongs, streamUrl, type PlaylistWithSongs } from "@/api/subsonic";
+import { coverArtUrl, getPlaylist, getStarred2, setPlaylistSongs, streamUrl, unstar, type PlaylistWithSongs } from "@/api/subsonic";
 import type { Child } from "@/types/subsonic";
 import { usePlayer } from "@/context/PlayerContext";
 import { isOwnPlaylist, refreshPlaylists } from "@/lib/playlists";
 import { showToast } from "@/lib/songMenu";
 import { shuffled } from "@/lib/shuffle";
+import { setStarred } from "@/lib/trackStar";
 import { Loading } from "@/components/Loading";
 import { ChevronLeftIcon, CloseIcon, HeartIcon, VolumeIcon } from "@/components/icons";
 
-// Sorting a playlist like Tinder: one song at a time, in random order, with
-// a bit of it playing. Swipe left and it goes, right and it stays. Nothing changes until
-// the end, where the songs swiped left are removed in one go. Where you are
-// is kept on this device, to carry on later.
+// Sorting a playlist (or Liked Songs) like Tinder: one song at a time, in
+// random order, with a bit of it playing. Swipe left and it goes, right and
+// it stays. Nothing changes until the end, where the songs swiped left are
+// removed (or unliked) in one go. Where you are is kept on this device, to
+// carry on later.
 
+/** Unliked this many at a time (the ids go in the URL). */
+const UNSTAR_BATCH = 100;
 /** How far (px) a card must be dragged to count. */
 const SWIPE_DISTANCE = 110;
 /** The preview starts this far into the song (the verse or chorus, not the intro). */
@@ -23,7 +27,7 @@ const MUTED_KEY = "spotifion.swipeMuted";
 type Decision = "keep" | "remove";
 
 interface Progress {
-  /** The playlist's songs when sorting started, to check it hasn't changed since. */
+  /** The songs when sorting started, to check they haven't changed since. */
   ids: string[];
   /** The order the songs come in: their positions in the playlist, shuffled. */
   order: number[];
@@ -66,71 +70,151 @@ function loadMuted(): boolean {
   }
 }
 
+/** What's being sorted, and what swiping left does to it. */
+interface SwipeTarget {
+  /** Where the progress is kept on this device. */
+  key: string;
+  name: string;
+  /** The page to go back to. */
+  back: string;
+  songs: Child[];
+  /** "Remove" (from a playlist) or "Unlike". */
+  verb: string;
+  /** Does it to the songs at these positions; resolves to what to tell. */
+  apply: (positions: number[]) => Promise<string>;
+}
+
 /** /playlist/:id/swipe */
 export function PlaylistSwipe() {
   const { id } = useParams<{ id: string }>();
   const [playlist, setPlaylist] = useState<PlaylistWithSongs | null | undefined>(undefined);
-  const [order, setOrder] = useState<number[]>([]);
-  const [decisions, setDecisions] = useState<Decision[]>([]);
-  const [finishing, setFinishing] = useState(false);
 
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
     getPlaylist(id)
-      .then((p) => {
-        if (cancelled) return;
-        setPlaylist(p);
-        const progress = loadProgress(id, (p.entry ?? []).map((s) => s.id));
-        setOrder(progress.order);
-        setDecisions(progress.decisions);
-      })
+      .then((p) => !cancelled && setPlaylist(p))
       .catch(() => !cancelled && setPlaylist(null));
     return () => {
       cancelled = true;
     };
   }, [id]);
 
-  const songs = playlist?.entry ?? NO_SONGS;
-  const decide = useCallback(
-    (decision: Decision) => {
-      if (!id || !playlist) return;
-      setDecisions((prev) => {
-        if (prev.length >= songs.length) return prev;
-        const next = [...prev, decision];
-        saveProgress(id, { ids: songs.map((s) => s.id), order, decisions: next });
-        return next;
-      });
-    },
-    [id, playlist, songs, order],
-  );
-
-  const undo = useCallback(() => {
-    if (!id) return;
-    setFinishing(false);
-    setDecisions((prev) => {
-      const next = prev.slice(0, -1);
-      saveProgress(id, { ids: songs.map((s) => s.id), order, decisions: next });
-      return next;
-    });
-  }, [id, songs, order]);
+  const target = useMemo<SwipeTarget | null>(() => {
+    if (!playlist) return null;
+    const songs = playlist.entry ?? NO_SONGS;
+    return {
+      key: playlist.id,
+      name: playlist.name,
+      back: `/playlist/${playlist.id}`,
+      songs,
+      verb: "Remove",
+      async apply(positions) {
+        // From the playlist as it is now: by position if it hasn't changed, else by song.
+        const fresh = (await getPlaylist(playlist.id)).entry ?? [];
+        let kept: Child[];
+        if (fresh.map((s) => s.id).join(",") === songs.map((s) => s.id).join(",")) {
+          const gone = new Set(positions);
+          kept = fresh.filter((_, i) => !gone.has(i));
+        } else {
+          kept = [...fresh];
+          for (const i of positions) {
+            const at = kept.findIndex((s) => s.id === songs[i].id);
+            if (at !== -1) kept.splice(at, 1);
+          }
+        }
+        await setPlaylistSongs(playlist.id, kept.map((s) => s.id));
+        refreshPlaylists();
+        return `Removed ${positions.length} song${positions.length === 1 ? "" : "s"} from ${playlist.name}`;
+      },
+    };
+  }, [playlist]);
 
   if (playlist === undefined) return <Loading />;
-  if (playlist === null || !id) return <p className="pt-10 text-center text-spotify-gray">This playlist doesn't exist any more.</p>;
+  if (playlist === null || !target) return <p className="pt-10 text-center text-spotify-gray">This playlist doesn't exist any more.</p>;
   if (!isOwnPlaylist(playlist)) {
     return <p className="pt-10 text-center text-spotify-gray">Only the playlist's owner can sort it.</p>;
   }
+  return <SwipeSort key={target.key} target={target} />;
+}
+
+/** /liked/swipe: swiping left unlikes. */
+export function LikedSwipe() {
+  const [songs, setSongs] = useState<Child[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getStarred2()
+      .then((r) => !cancelled && setSongs(r.song ?? []))
+      .catch(() => !cancelled && setSongs([]));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const target = useMemo<SwipeTarget | null>(
+    () =>
+      songs && {
+        key: "liked",
+        name: "Liked Songs",
+        back: "/liked",
+        songs,
+        verb: "Unlike",
+        async apply(positions) {
+          const ids = positions.map((i) => songs[i].id);
+          for (let i = 0; i < ids.length; i += UNSTAR_BATCH) {
+            const batch = ids.slice(i, i + UNSTAR_BATCH);
+            await unstar({ id: batch });
+            for (const id of batch) setStarred(id, false);
+          }
+          return `Unliked ${ids.length} song${ids.length === 1 ? "" : "s"}`;
+        },
+      },
+    [songs],
+  );
+
+  if (!target) return <Loading />;
+  if (!target.songs.length) return <p className="pt-10 text-center text-spotify-gray">No liked songs to sort.</p>;
+  return <SwipeSort key={target.key} target={target} />;
+}
+
+function SwipeSort({ target }: { target: SwipeTarget }) {
+  const { key, songs } = target;
+  const [{ order, decisions }, setProgress] = useState(() => loadProgress(key, songs.map((s) => s.id)));
+  const [finishing, setFinishing] = useState(false);
+  const ids = useMemo(() => songs.map((s) => s.id), [songs]);
+
+  const decide = useCallback(
+    (decision: Decision) => {
+      setProgress((prev) => {
+        if (prev.decisions.length >= songs.length) return prev;
+        const next = { order: prev.order, decisions: [...prev.decisions, decision] };
+        saveProgress(key, { ids, ...next });
+        return next;
+      });
+    },
+    [key, ids, songs.length],
+  );
+
+  const undo = useCallback(() => {
+    setFinishing(false);
+    setProgress((prev) => {
+      const next = { order: prev.order, decisions: prev.decisions.slice(0, -1) };
+      saveProgress(key, { ids, ...next });
+      return next;
+    });
+  }, [key, ids]);
 
   const done = decisions.length >= songs.length;
   return done || finishing ? (
-    <Summary playlist={playlist} order={order} decisions={decisions} onUndo={undo} onBack={() => setFinishing(false)} done={done} />
+    <Summary target={target} order={order} decisions={decisions} onUndo={undo} onBack={() => setFinishing(false)} done={done} />
   ) : (
-    <Deck playlist={playlist} order={order} index={decisions.length} decisions={decisions} onDecide={decide} onUndo={undo} onFinish={() => setFinishing(true)} />
+    <Deck target={target} order={order} index={decisions.length} decisions={decisions} onDecide={decide} onUndo={undo} onFinish={() => setFinishing(true)} />
   );
 }
 
 function Deck({
-  playlist,
+  target,
   order,
   index,
   decisions,
@@ -138,7 +222,7 @@ function Deck({
   onUndo,
   onFinish,
 }: {
-  playlist: PlaylistWithSongs;
+  target: SwipeTarget;
   order: number[];
   index: number;
   decisions: Decision[];
@@ -146,7 +230,7 @@ function Deck({
   onUndo: () => void;
   onFinish: () => void;
 }) {
-  const songs = playlist.entry ?? [];
+  const { songs, verb } = target;
   const song = songs[order[index]];
   const upcoming = songs[order[index + 1]];
   const removed = decisions.filter((d) => d === "remove").length;
@@ -241,13 +325,13 @@ function Deck({
     <div className="mx-auto flex max-w-md flex-col pt-4 md:pt-6">
       <audio ref={audioRef} preload="auto" />
       <div className="mb-4 flex items-center justify-between gap-3">
-        <Link to={`/playlist/${playlist.id}`} aria-label="Back to the playlist" className="text-spotify-gray hover:text-white">
+        <Link to={target.back} aria-label={`Back to ${target.name}`} className="text-spotify-gray hover:text-white">
           <ChevronLeftIcon className="h-6 w-6" />
         </Link>
         <div className="min-w-0 text-center">
-          <p className="truncate font-bold">{playlist.name}</p>
+          <p className="truncate font-bold">{target.name}</p>
           <p className="text-xs text-spotify-gray">
-            {index + 1} of {songs.length} · {removed} to remove
+            {index + 1} of {songs.length} · {removed} to {verb.toLowerCase()}
           </p>
         </div>
         <button
@@ -267,8 +351,10 @@ function Deck({
       </div>
 
       <div className="relative aspect-[3/4] w-full select-none">
-        {upcoming && <Card song={upcoming} className="scale-95 opacity-60" />}
+        {/* Keyed by position: a new card and picture for each song (reusing them kept the old cover on screen). */}
+        {upcoming && <Card key={`next-${index + 1}`} song={upcoming} className="scale-95 opacity-60" />}
         <div
+          key={`top-${index}`}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
@@ -287,7 +373,7 @@ function Deck({
             className="absolute right-5 top-6 rotate-12 rounded-lg border-4 border-red-500 px-3 py-1 text-2xl font-black uppercase text-red-500"
             style={{ opacity: Math.max(0, -leaning) }}
           >
-            Remove
+            {verb}
           </span>
         </div>
       </div>
@@ -304,8 +390,8 @@ function Deck({
         <button
           type="button"
           onClick={() => commit("remove")}
-          aria-label="Remove from the playlist"
-          title="Remove (←)"
+          aria-label={verb}
+          title={`${verb} (←)`}
           className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-red-500 text-red-500 transition hover:scale-105 hover:bg-red-500/10"
         >
           <CloseIcon className="h-7 w-7" />
@@ -313,7 +399,7 @@ function Deck({
         <button
           type="button"
           onClick={() => commit("keep")}
-          aria-label="Keep in the playlist"
+          aria-label="Keep"
           title="Keep (→)"
           className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-spotify-green text-spotify-green transition hover:scale-105 hover:bg-spotify-green/10"
         >
@@ -328,7 +414,7 @@ function Deck({
           Finish
         </button>
       </div>
-      <p className="mt-4 hidden text-center text-xs text-spotify-gray md:block">← remove · → keep · Backspace to undo</p>
+      <p className="mt-4 hidden text-center text-xs text-spotify-gray md:block">← {verb.toLowerCase()} · → keep · Backspace to undo</p>
     </div>
   );
 }
@@ -346,16 +432,16 @@ function Card({ song, className = "" }: { song: Child; className?: string }) {
   );
 }
 
-/** What's left to do: remove the songs swiped left, in one go. */
+/** What's left to do: remove (or unlike) the songs swiped left, in one go. */
 function Summary({
-  playlist,
+  target,
   order,
   decisions,
   done,
   onUndo,
   onBack,
 }: {
-  playlist: PlaylistWithSongs;
+  target: SwipeTarget;
   order: number[];
   decisions: Decision[];
   done: boolean;
@@ -364,35 +450,20 @@ function Summary({
 }) {
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
-  const songs = playlist.entry ?? [];
-  // Their positions in the playlist, in its order.
+  const { songs, verb } = target;
+  // Their positions, in the list's order.
   const removing = decisions.flatMap((d, k) => (d === "remove" ? [order[k]] : [])).sort((a, b) => a - b);
   const left = songs.length - decisions.length;
 
   async function apply() {
     setSaving(true);
     try {
-      // From the playlist as it is now: by position if it hasn't changed, else by song.
-      const fresh = (await getPlaylist(playlist.id)).entry ?? [];
-      let kept: Child[];
-      if (fresh.map((s) => s.id).join(",") === songs.map((s) => s.id).join(",")) {
-        const gone = new Set(removing);
-        kept = fresh.filter((_, i) => !gone.has(i));
-      } else {
-        const toRemove = removing.map((i) => songs[i].id);
-        kept = [...fresh];
-        for (const songId of toRemove) {
-          const at = kept.findIndex((s) => s.id === songId);
-          if (at !== -1) kept.splice(at, 1);
-        }
-      }
-      await setPlaylistSongs(playlist.id, kept.map((s) => s.id));
-      saveProgress(playlist.id, null);
-      refreshPlaylists();
-      showToast(`Removed ${removing.length} song${removing.length === 1 ? "" : "s"} from ${playlist.name}`);
-      navigate(`/playlist/${playlist.id}`);
+      const message = await target.apply(removing);
+      saveProgress(target.key, null);
+      showToast(message);
+      navigate(target.back);
     } catch {
-      showToast("Couldn't save the playlist. Try again.");
+      showToast("Couldn't save that. Try again.");
       setSaving(false);
     }
   }
@@ -401,7 +472,9 @@ function Summary({
     <div className="mx-auto flex max-w-md flex-col gap-5 pt-6 text-center md:pt-10">
       <h1 className="text-2xl font-bold">{done ? "All sorted" : "Finish sorting?"}</h1>
       <p className="text-spotify-gray">
-        {decisions.length - removing.length} kept · <span className="text-white">{removing.length} to remove</span>
+        {decisions.length - removing.length} kept · <span className="text-white">
+          {removing.length} to {verb.toLowerCase()}
+        </span>
         {!done && ` · ${left} not sorted yet (they stay)`}
       </p>
 
@@ -427,11 +500,11 @@ function Summary({
             disabled={saving}
             className="rounded-full bg-red-500 px-6 py-3 font-bold text-pure-white transition hover:scale-[1.02] disabled:opacity-50"
           >
-            {saving ? "Saving…" : `Remove ${removing.length} song${removing.length === 1 ? "" : "s"}`}
+            {saving ? "Saving…" : `${verb} ${removing.length} song${removing.length === 1 ? "" : "s"}`}
           </button>
         ) : (
-          <Link to={`/playlist/${playlist.id}`} className="rounded-full bg-white px-6 py-3 font-bold text-black">
-            Nothing to remove: back to the playlist
+          <Link to={target.back} className="rounded-full bg-white px-6 py-3 font-bold text-black">
+            Nothing to {verb.toLowerCase()}: back to {target.name}
           </Link>
         )}
         {done ? (

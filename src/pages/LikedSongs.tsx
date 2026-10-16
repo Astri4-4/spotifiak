@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { getStarred2, unstar } from "@/api/subsonic";
 import type { Child } from "@/types/subsonic";
 import { usePlayer } from "@/context/PlayerContext";
@@ -64,6 +65,15 @@ export function LikedSongs() {
       <div className="mt-4 flex items-center gap-6 sm:mt-6">
         <PlayButton onClick={() => playQueue(listed)} disabled={listed.length === 0} label="Play liked songs" />
         <ShufflePlayButton onClick={() => playQueue(shuffled(listed))} disabled={listed.length === 0} label="Shuffle liked songs" />
+        {songs.length > 0 && (
+          <Link
+            to="/liked/swipe"
+            title="One song at a time: swipe left to unlike it, right to keep it"
+            className="text-sm font-semibold text-spotify-gray hover:text-white"
+          >
+            Swipe sort
+          </Link>
+        )}
       </div>
 
       <div className="mt-4 sm:mt-8">

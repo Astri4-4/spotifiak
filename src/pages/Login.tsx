@@ -46,7 +46,7 @@ export function Login() {
       }
     }
     try {
-      await login(username, password);
+      await login(username.trim(), password);
       navigate("/", { replace: true });
     } catch (err) {
       if (err instanceof SubsonicError) {
@@ -117,6 +117,9 @@ export function Login() {
               onChange={(e) => setUsername(e.target.value)}
               className="rounded-md border border-white/20 bg-transparent px-3 py-3 text-sm outline-none focus:border-white"
               autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               required
             />
           </label>

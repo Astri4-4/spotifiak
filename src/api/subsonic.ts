@@ -20,6 +20,19 @@ export async function ping(creds?: Credentials): Promise<void> {
   await request("ping", {}, creds);
 }
 
+/**
+ * Your username as Navidrome spells it: it accepts any case at login
+ * ("youf" for "Youf"), but names playlists' owners its own way.
+ */
+export async function getUsername(creds: Credentials): Promise<string> {
+  const res = await request<{ "subsonic-response": { user?: { username?: string } } }>(
+    "getUser",
+    { username: creds.username },
+    creds,
+  );
+  return res["subsonic-response"].user?.username || creds.username;
+}
+
 export type AlbumListType =
   | "random"
   | "newest"
@@ -110,6 +123,7 @@ export async function search3(
   return res["subsonic-response"].searchResult3;
 }
 
+/** Every playlist you can see: yours, and others' public ones (see lib/playlists.ts for just yours). */
 export async function getPlaylists(): Promise<Playlist[]> {
   const res = await request<{
     "subsonic-response": { playlists: { playlist?: Playlist[] } };

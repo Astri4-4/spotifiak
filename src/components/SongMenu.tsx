@@ -270,12 +270,10 @@ function ShareItems({ request, onBack, large }: { request: SongMenuRequest; onBa
 
 function PlaylistItems({ request, onBack, large }: { request: SongMenuRequest; onBack: () => void; large: boolean }) {
   const { track } = request;
-  const { username } = useAuth();
-  const playlists = usePlaylists();
+  // Only yours are listed: Navidrome only lets the owner add songs to a playlist.
+  const own = usePlaylists();
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
-  // Navidrome only lets the owner add songs to a playlist.
-  const own = playlists?.filter((p) => !p.owner || p.owner === username);
 
   async function addTo(playlistId: string, playlistName: string) {
     closeSongMenu();

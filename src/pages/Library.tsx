@@ -4,7 +4,6 @@ import {
   coverArtUrl,
   getAllAlbums,
   getArtists,
-  getPlaylists,
   type AlbumID3,
   type ArtistID3,
   type Playlist,
@@ -21,6 +20,7 @@ import { useVisibleAlbums } from "@/lib/hidden";
 import { SMART_PLAYLISTS } from "@/lib/smartPlaylists";
 import { SmartPlaylistArt } from "@/components/SmartPlaylistArt";
 import { useLikedCollections } from "@/lib/collectionStar";
+import { getOwnPlaylists } from "@/lib/playlists";
 
 type Tab = "playlists" | "artists" | "albums";
 
@@ -105,7 +105,7 @@ export function Library() {
   const albums = allAlbums && visibleAlbums;
 
   useEffect(() => {
-    if (tab === "playlists" && playlists === null) getPlaylists().then(setPlaylists);
+    if (tab === "playlists" && playlists === null) getOwnPlaylists().then(setPlaylists);
     if (tab === "artists" && artists === null) getArtists().then(setArtists);
     if (tab === "albums" && allAlbums === null) getAllAlbums().then(setAlbums);
   }, [tab, playlists, artists, allAlbums]);

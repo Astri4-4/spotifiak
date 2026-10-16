@@ -13,13 +13,12 @@ import {
 import type { Child } from "@/types/subsonic";
 import { formatDurationLong } from "@/lib/format";
 import { usePlayer } from "@/context/PlayerContext";
-import { useAuth } from "@/context/AuthContext";
 import { TrackList } from "@/components/TrackList";
 import { Loading } from "@/components/Loading";
 import { DetailHeader, PlayButton, ShufflePlayButton } from "@/components/DetailHeader";
 import { CloseIcon, DragHandleIcon } from "@/components/icons";
 import { shuffled } from "@/lib/shuffle";
-import { refreshPlaylists } from "@/lib/playlists";
+import { isOwnPlaylist, refreshPlaylists } from "@/lib/playlists";
 import { setStarred } from "@/lib/trackStar";
 import { useDragReorder } from "@/lib/useDragReorder";
 import { useStepped } from "@/lib/useStepped";
@@ -37,7 +36,6 @@ export function PlaylistDetail() {
   const [editing, setEditing] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const { playQueue } = usePlayer();
-  const { username } = useAuth();
   const navigate = useNavigate();
   // Edits are saved one after the other, in the order they were made, since
   // Subsonic removes songs by position.
@@ -74,7 +72,7 @@ export function PlaylistDetail() {
 
   if (!playlist || !id) return <Loading />;
   // Navidrome only lets the owner change a playlist.
-  const canEdit = !playlist.owner || playlist.owner === username;
+  const canEdit = isOwnPlaylist(playlist);
 
   /** Shows `next` right away and saves it with `change`; reloads the server's version if that fails. */
   function edit(next: PlaylistWithSongs, change: () => Promise<void>) {
@@ -104,6 +102,14 @@ export function PlaylistDetail() {
     const [moved] = entry.splice(from, 1);
     entry.splice(to, 0, moved);
     edit({ ...playlist, entry }, () => setPlaylistSongs(id!, entry.map((s) => s.id)));
+  }
+
+  function setPublic(isPublic: boolean) {
+    if (!playlist) return;
+    edit({ ...playlist, public: isPublic }, async () => {
+      await updatePlaylist(id!, { public: isPublic });
+      refreshPlaylists();
+    });
   }
 
   function saveDetails(name: string, comment: string) {
@@ -149,7 +155,7 @@ export function PlaylistDetail() {
   return (
     <div>
       <DetailHeader
-        kind="Playlist"
+        kind={playlist.public ? "Public playlist" : "Private playlist"}
         title={playlist.name}
         image={<img src={coverArtUrl(playlist.coverArt, 400)} alt="" className="h-full w-full rounded object-cover" />}
         meta={
@@ -202,6 +208,7 @@ export function PlaylistDetail() {
             onSave={saveDetails}
           />
         )}
+        {editing && <PublicSwitch isPublic={Boolean(playlist.public)} onChange={setPublic} />}
         {songs.length === 0 ? (
           <p className="text-spotify-gray">This playlist is empty. Add songs from an album or search.</p>
         ) : editing ? (
@@ -237,6 +244,27 @@ export function PlaylistDetail() {
         )}
       </div>
     </div>
+  );
+}
+
+/** Whether others on the server can see the playlist (and play it from any Subsonic app). */
+function PublicSwitch({ isPublic, onChange }: { isPublic: boolean; onChange: (isPublic: boolean) => void }) {
+  return (
+    <label className="mb-6 flex max-w-xl cursor-pointer items-center justify-between gap-4">
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold">Public</span>
+        <span className="block text-xs text-spotify-gray">
+          {isPublic
+            ? "Others on this server can see it in Navidrome and other Subsonic apps, and open it from a link."
+            : "Only you can see it (and the server's admins, in Navidrome)."}
+        </span>
+      </span>
+      <input type="checkbox" role="switch" checked={isPublic} onChange={(e) => onChange(e.target.checked)} className="peer sr-only" />
+      <span
+        aria-hidden
+        className="relative h-6 w-11 flex-shrink-0 rounded-full bg-white/30 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-pure-white after:shadow after:transition peer-checked:bg-spotify-green peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-white"
+      />
+    </label>
   );
 }
 

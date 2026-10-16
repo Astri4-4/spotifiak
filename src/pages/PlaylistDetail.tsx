@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   deletePlaylist,
   getPlaylist,
@@ -185,6 +185,15 @@ export function PlaylistDetail() {
           >
             {editing ? "Done" : "Edit playlist"}
           </button>
+        )}
+        {canEdit && songs.length > 0 && (
+          <Link
+            to={`/playlist/${id}/swipe`}
+            title="One song at a time: swipe left to remove it, right to keep it"
+            className="text-sm font-semibold text-spotify-gray hover:text-white"
+          >
+            Swipe sort
+          </Link>
         )}
         <HideDuplicatesButton what="playlist" songs={() => songs} />
         <button

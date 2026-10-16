@@ -23,6 +23,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { byName } from "./names.mjs";
 import crypto from "node:crypto";
 import { isAdmin } from "./discover.mjs";
 
@@ -74,10 +75,25 @@ class EventsError extends Error {
   }
 }
 
+/** One person's calendar saved under two spellings of their name: the artists of both. */
+function mergeUsers(kept, other) {
+  const followed = new Set(kept.artists.map((a) => a.id));
+  return {
+    artists: [...kept.artists, ...other.artists.filter((a) => !followed.has(a.id))],
+    country: kept.country || other.country,
+    lastVisit: Math.max(kept.lastVisit, other.lastVisit),
+    icsToken: kept.icsToken || other.icsToken,
+  };
+}
+
 function load() {
   const empty = { users: {}, artists: {}, ticketmasterKey: "" };
   try {
-    if (DATA_FILE) return { ...empty, ...JSON.parse(fs.readFileSync(DATA_FILE, "utf8")) };
+    if (DATA_FILE) {
+      const saved = { ...empty, ...JSON.parse(fs.readFileSync(DATA_FILE, "utf8")) };
+      saved.users = Object.fromEntries(byName(Object.entries(saved.users ?? {}), mergeUsers));
+      return saved;
+    }
   } catch {
     // Nothing saved yet.
   }

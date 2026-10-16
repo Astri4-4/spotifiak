@@ -17,6 +17,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { byName, nameKey } from "./names.mjs";
 
 const DATA_DIR = process.env.JAM_DATA_DIR || "";
 const MIXES_FILE = DATA_DIR ? path.join(DATA_DIR, "mixes.json") : "";
@@ -63,7 +64,21 @@ function loadMixes() {
   try {
     if (MIXES_FILE) {
       const saved = JSON.parse(fs.readFileSync(MIXES_FILE, "utf8"));
-      if (Array.isArray(saved)) return new Map(saved.map((m) => [m.id, m]));
+      if (Array.isArray(saved)) {
+        return new Map(
+          saved.map((m) => [
+            m.id,
+            {
+              ...m,
+              owner: nameKey(m.owner),
+              // The same person under two spellings: their latest top songs.
+              members: Object.fromEntries(
+                byName(Object.entries(m.members ?? {}), (kept, other) => (other.updatedAt > kept.updatedAt ? other : kept)),
+              ),
+            },
+          ]),
+        );
+      }
     }
   } catch {
     // None saved yet.

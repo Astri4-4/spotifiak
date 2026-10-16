@@ -2,6 +2,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import { getPlaylists } from "@/api/subsonic";
 import { loadCredentials } from "@/api/client";
 import type { Playlist } from "@/types/subsonic";
+import { sameUser } from "./names";
 
 // Your playlists, shared by everything that lists them (the sidebar, Your
 // Library, "Add to playlist"), so a playlist created, renamed or deleted
@@ -18,11 +19,6 @@ const listeners = new Set<() => void>();
 function subscribe(listener: () => void) {
   listeners.add(listener);
   return () => listeners.delete(listener);
-}
-
-/** Usernames match whatever their case (Navidrome's logins don't care). */
-export function sameUser(a: string | null | undefined, b: string | null | undefined): boolean {
-  return Boolean(a && b && a.toLowerCase() === b.toLowerCase());
 }
 
 /** Whether you own it (Navidrome only lets the owner change a playlist). */

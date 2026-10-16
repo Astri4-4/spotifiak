@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { FriendsIcon, SearchIcon } from "./icons";
 import { Avatar } from "./Avatar";
-import { InviteInbox } from "./InviteInbox";
+import { ChatButton } from "./ChatButton";
 import { FRIENDS_QUERY, setRightPanel, useRightPanel } from "@/lib/rightPanel";
 
 export function TopBar() {
@@ -35,7 +35,7 @@ export function TopBar() {
         </div>
       </form>
 
-      <InviteInbox />
+      <ChatButton />
       {/* Narrow screens: the Friend activity page. Wide ones: re-open its panel if hidden. */}
       <Link
         to="/activity"

@@ -12,6 +12,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { nameKey } from "./names.mjs";
 
 const DATA_DIR = process.env.JAM_DATA_DIR || "";
 const AVATAR_DIR = DATA_DIR ? path.join(DATA_DIR, "avatars") : "";
@@ -39,13 +40,28 @@ function loadAvatars() {
       const match = name.match(/^([0-9a-f]+)\.jpg$/);
       if (!match) continue;
       const file = path.join(AVATAR_DIR, name);
-      const username = Buffer.from(match[1], "hex").toString("utf8");
-      map.set(username, { data: fs.readFileSync(file), version: Math.floor(fs.statSync(file).mtimeMs) });
+      const username = nameKey(Buffer.from(match[1], "hex").toString("utf8"));
+      const version = Math.floor(fs.statSync(file).mtimeMs);
+      // Saved under two spellings of the name: the latest picture.
+      if ((map.get(username)?.version ?? -1) < version) map.set(username, { data: fs.readFileSync(file), version });
     }
   } catch {
     // None saved yet.
   }
   return map;
+}
+
+/** Deletes the person's picture files, under any spelling of their name. */
+function removeFiles(username) {
+  if (!AVATAR_DIR) return;
+  try {
+    for (const name of fs.readdirSync(AVATAR_DIR)) {
+      const match = name.match(/^([0-9a-f]+)\.jpg$/);
+      if (match && nameKey(Buffer.from(match[1], "hex").toString("utf8")) === username) fs.rmSync(path.join(AVATAR_DIR, name), { force: true });
+    }
+  } catch {
+    // Nothing saved.
+  }
 }
 
 function isJpeg(data) {
@@ -96,6 +112,7 @@ async function route(req, res, url, username) {
     if (AVATAR_DIR) {
       try {
         fs.mkdirSync(AVATAR_DIR, { recursive: true });
+        removeFiles(username);
         const file = path.join(AVATAR_DIR, fileName(username));
         fs.writeFileSync(file, data);
         // The file's time is its version after a restart: keep them equal, so caches stay valid.
@@ -111,12 +128,12 @@ async function route(req, res, url, username) {
   // (A GET is someone named "remove"'s picture.)
   if (sub === "remove" && req.method === "POST") {
     avatars.delete(username);
-    if (AVATAR_DIR) fs.rmSync(path.join(AVATAR_DIR, fileName(username)), { force: true });
+    removeFiles(username);
     return json(res, 204);
   }
 
   if (req.method !== "GET") throw new AvatarError(405, "Method not allowed.");
-  const avatar = avatars.get(sub);
+  const avatar = avatars.get(nameKey(sub));
   if (!avatar) throw new AvatarError(404, "No picture.");
   res.writeHead(200, {
     "Content-Type": "image/jpeg",

@@ -57,6 +57,11 @@
 //
 //   /jam-api/invites/...
 //
+// And it carries conversations between people, where those invitations and
+// the songs people send each other land too - see chat.mjs.
+//
+//   /jam-api/chat/...
+//
 // And it keeps everyone's podcasts and where they are in each episode - see
 // podcasts.mjs.
 //
@@ -75,7 +80,9 @@ import { handleStreams } from "./streams.mjs";
 import { handleHidden } from "./hidden.mjs";
 import { handleMixes, mixForInvite } from "./mixes.mjs";
 import { handleAvatars } from "./avatars.mjs";
-import { handleInvites, rememberPerson } from "./invites.mjs";
+import { handleInvites, isPerson, rememberPerson } from "./invites.mjs";
+import { handleChat } from "./chat.mjs";
+import { nameKey } from "./names.mjs";
 import { handlePodcasts } from "./podcasts.mjs";
 import { handleEvents, handleEventsIcs } from "./events.mjs";
 
@@ -121,7 +128,11 @@ const authCache = new Map();
 
 // ---- auth -------------------------------------------------------------
 
-/** Resolves to the Navidrome username if u/t/s are valid credentials, else null. */
+/**
+ * Resolves to the Navidrome username if u/t/s are valid credentials, else
+ * null. In lowercase: Navidrome's logins take any case ("Youf" or "youf"),
+ * and everything saved here is filed under one spelling.
+ */
 async function authenticate(params) {
   const u = params.get("u");
   const t = params.get("t");
@@ -141,9 +152,10 @@ async function authenticate(params) {
     console.error(`[jam] could not reach Navidrome at ${NAVIDROME_URL}:`, err.message);
     return null;
   }
-  authCache.set(key, { username: u, expires: Date.now() + AUTH_TTL_MS });
-  rememberPerson(u);
-  return u;
+  const username = nameKey(u);
+  authCache.set(key, { username, expires: Date.now() + AUTH_TTL_MS });
+  rememberPerson(username);
+  return username;
 }
 
 // ---- session state ------------------------------------------------------
@@ -690,6 +702,12 @@ async function handle(req, res) {
     const username = await authenticate(url.searchParams);
     if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });
     return handleInvites(req, res, url, username, { readJson, lookup: inviteTarget, navidromeUrl: NAVIDROME_URL });
+  }
+
+  if (url.pathname === "/jam-api/chat" || url.pathname.startsWith("/jam-api/chat/")) {
+    const username = await authenticate(url.searchParams);
+    if (!username) return json(res, 401, { error: "Invalid Navidrome credentials." });
+    return handleChat(req, res, url, username, { readJson, isPerson });
   }
 
   if (url.pathname === "/jam-api/podcasts" || url.pathname.startsWith("/jam-api/podcasts/")) {

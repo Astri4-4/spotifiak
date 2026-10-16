@@ -1,4 +1,5 @@
 import { useEffect, useSyncExternalStore } from "react";
+import { nameKey } from "./names";
 import { avatarUrl, getAvatarVersions, removeAvatar, uploadAvatar } from "@/api/avatars";
 
 // Everyone's profile picture versions, fetched once and refreshed now and
@@ -38,10 +39,11 @@ function subscribe(listener: () => void) {
 export function useAvatarUrl(username: string | null | undefined): string | null {
   const all = useSyncExternalStore(subscribe, () => versions);
   useEffect(() => load(), []);
-  const version = username ? all[username] : undefined;
-  if (!username || version === undefined) return null;
+  const key = username ? nameKey(username) : null;
+  const version = key ? all[key] : undefined;
+  if (!key || version === undefined) return null;
   try {
-    return avatarUrl(username, version);
+    return avatarUrl(key, version);
   } catch {
     return null;
   }

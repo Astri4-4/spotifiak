@@ -17,6 +17,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { byName } from "./names.mjs";
 import crypto from "node:crypto";
 import dns from "node:dns/promises";
 import net from "node:net";
@@ -60,7 +61,15 @@ class PodcastError extends Error {
 
 function load() {
   try {
-    if (PODCASTS_FILE) return new Map(Object.entries(JSON.parse(fs.readFileSync(PODCASTS_FILE, "utf8"))));
+    if (PODCASTS_FILE) {
+      // The same person under two spellings: the shows of both, and the latest place in each episode.
+      return byName(Object.entries(JSON.parse(fs.readFileSync(PODCASTS_FILE, "utf8"))), (kept, other) => {
+        const subscribed = new Set(kept.shows.map((s) => s.id));
+        const progress = { ...other.progress };
+        for (const [id, p] of Object.entries(kept.progress)) if (!progress[id] || p.at >= progress[id].at) progress[id] = p;
+        return { shows: [...kept.shows, ...other.shows.filter((s) => !subscribed.has(s.id))], progress };
+      });
+    }
   } catch {
     // None saved yet.
   }

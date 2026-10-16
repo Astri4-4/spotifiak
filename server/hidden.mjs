@@ -14,6 +14,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { byName } from "./names.mjs";
 
 const DATA_DIR = process.env.JAM_DATA_DIR || "";
 const HIDDEN_FILE = DATA_DIR ? path.join(DATA_DIR, "hidden.json") : "";
@@ -33,7 +34,12 @@ class HiddenError extends Error {
 
 function load() {
   try {
-    if (HIDDEN_FILE) return new Map(Object.entries(JSON.parse(fs.readFileSync(HIDDEN_FILE, "utf8"))));
+    if (HIDDEN_FILE) {
+      return byName(Object.entries(JSON.parse(fs.readFileSync(HIDDEN_FILE, "utf8"))), (kept, other) => ({
+        songs: { ...other.songs, ...kept.songs },
+        albums: [...new Set([...kept.albums, ...other.albums])],
+      }));
+    }
   } catch {
     // None saved yet.
   }

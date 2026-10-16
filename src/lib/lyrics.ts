@@ -85,6 +85,16 @@ export function parseLrc(text: string, source: Lyrics["source"]): Lyrics | null 
   return { synced: true, lines, source };
 }
 
+async function fromStructuredList(get: () => Promise<StructuredLyrics[]>): Promise<Lyrics | null> {
+  try {
+    const all = await get();
+    const best = all.find((l) => l.synced && l.line.length > 0) ?? all.find((l) => l.line.length > 0);
+    return best ? fromStructured(best) : null;
+  } catch {
+    return null;
+  }
+}
+
 async function fromNavidrome(track: Child): Promise<Lyrics | null> {
   try {
     const all = await getLyricsBySongId(track.id);
@@ -165,8 +175,13 @@ async function fromLrclibAs(track: Child, artist: string): Promise<Lyrics | null
   return fromLrclibRecord(close.find((r) => r.syncedLyrics) ?? close.find((r) => r.plainLyrics) ?? results.find((r) => r.syncedLyrics));
 }
 
-async function loadLyrics(track: Child): Promise<Lyrics | null> {
-  const local = await fromNavidrome(track);
+/**
+ * The best lyrics for `track`: Navidrome's, unless LRCLIB has synced ones.
+ * `fromServer` gets Navidrome's structured lyrics another way (the TV, which
+ * has no login, asks through the Jam server).
+ */
+export async function loadLyrics(track: Child, fromServer?: () => Promise<StructuredLyrics[]>): Promise<Lyrics | null> {
+  const local = fromServer ? await fromStructuredList(fromServer) : await fromNavidrome(track);
   if (local?.synced || !getOnlineLyrics()) return local;
   try {
     const online = await fromLrclib(track);

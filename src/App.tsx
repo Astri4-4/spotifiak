@@ -26,6 +26,7 @@ import { Podcasts } from "@/pages/Podcasts";
 import { Podcast } from "@/pages/Podcast";
 import { Calendar } from "@/pages/Calendar";
 import { Chat } from "@/pages/Chat";
+import { Screen } from "@/pages/Screen";
 
 export default function App() {
   return (
@@ -35,6 +36,8 @@ export default function App() {
           <PlayerProvider>
             <Routes>
               <Route path="/login" element={<Login />} />
+              {/* A karaoke TV: no login, paired with a code (see pages/Screen.tsx). */}
+              <Route path="/tv" element={<Screen />} />
               <Route element={<ProtectedRoute />}>
                 <Route element={<Layout />}>
                   <Route path="/" element={<Home />} />

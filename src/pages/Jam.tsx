@@ -7,6 +7,7 @@ import { parseJamCode, type JamQueueItem } from "@/api/jam";
 import { Loading } from "@/components/Loading";
 import { jamInviteOrigin } from "@/lib/servers";
 import { InviteFriends } from "@/components/InviteFriends";
+import { KaraokeCard } from "@/components/KaraokeCard";
 import { CheckIcon, CloseIcon, DragHandleIcon, JamIcon } from "@/components/icons";
 import { Avatar } from "@/components/Avatar";
 import { useDragReorder } from "@/lib/useDragReorder";
@@ -223,6 +224,8 @@ function JamSession({ panel }: { panel: boolean }) {
           </div>
         </section>
       </div>
+
+      <KaraokeCard jam={jam} canControl={canControl} act={act} />
 
       <section>
         <h2 className={`mb-3 font-bold ${panel ? "text-base" : "text-xl"}`}>Now playing</h2>
